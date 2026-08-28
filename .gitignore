@@ -1,0 +1,14 @@
+node_modules/
+dist/
+dist-pages/
+.next/
+*.tsbuildinfo
+.wrangler/
+.sites-runtime/
+.env
+.env.*
+!.env.example
+npm-debug.log*
+.openai/hosting.json
+.privacy-denylist
+supabase/.temp/

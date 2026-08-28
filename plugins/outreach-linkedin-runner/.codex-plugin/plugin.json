@@ -1,0 +1,18 @@
+{
+  "name": "outreach-linkedin-runner",
+  "version": "1.0.0",
+  "description": "Human-supervised LinkedIn connection, reply, follow-up, and stale-invitation runners for Outreach Intelligence.",
+  "author": {
+    "name": "Outreach Intelligence Contributors"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Outreach LinkedIn Runner",
+    "shortDescription": "Run approved LinkedIn outreach safely.",
+    "longDescription": "Runs only frozen, user-selected Outreach batches in an authenticated browser, with identity checks, duplicate protection, visible-success recording, and stop conditions for LinkedIn safeguards.",
+    "developerName": "Outreach Intelligence Contributors",
+    "category": "Productivity",
+    "capabilities": ["Human-supervised browser workflows", "Duplicate and relationship preflight", "Auditable batch outcomes"],
+    "defaultPrompt": "Help me review or run an approved Outreach batch."
+  }
+}

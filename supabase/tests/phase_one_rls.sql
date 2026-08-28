@@ -1,0 +1,7 @@
+-- Run with `supabase test db` or the Dashboard RLS tester after creating two test users.
+-- Required assertions:
+-- 1. An authenticated owner can select, insert, update and delete rows in their workspace.
+-- 2. A second authenticated user cannot read or mutate any row belonging to the owner.
+-- 3. The anon role cannot access any oi_* table.
+-- 4. An update cannot change workspace_id to a workspace owned by another user.
+-- 5. Every funnel metric is derived from oi_events, never oi_people.relationship_status alone.
