@@ -92,7 +92,7 @@ npm ci
 npm run dev
 ```
 
-With no environment configuration, the app opens a one-time private workspace connection screen. Add the Supabase project URL and browser-safe publishable key to continue to password or email-link sign-in. The responsive synthetic dashboard remains available as an explicit preview and never connects or sends anything. For a preconfigured private deployment, copy `.env.example` to `.env.local` and add only a browser-safe Supabase project URL and modern publishable key.
+The official `melvinroy.github.io/Outreach` deployment is preconfigured with its browser-safe Supabase project URL and publishable key, so it opens password or email-link sign-in directly and restores an existing browser session automatically. Other deployments open a one-time private workspace connection screen unless they provide environment configuration. The responsive synthetic dashboard remains available only as an explicit preview and never connects or sends anything.
 
 Complete installation instructions: [docs/INSTALL.md](docs/INSTALL.md).
 
@@ -120,7 +120,7 @@ The older `oi_*` foundation remains migration-compatible but is not used by the 
 
 ## GitHub Pages
 
-Every push to `main` runs the full verification gate and publishes a generic demo-first dashboard. The checked-in public workflow deliberately does not inject Supabase environment values, so it cannot connect to the maintainer's database. Use the top-right private-workspace control or the separate private-deployment guidance when a connected workspace is required.
+Every push to `main` runs the full verification gate. The named GitHub Pages deployment uses only its browser-safe publishable configuration to open Supabase Auth directly; passwords and privileged keys are never bundled. Forks remain setup-first unless they provide their own environment values.
 
 ```bash
 npm run build:pages

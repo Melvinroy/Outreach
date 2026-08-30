@@ -22,10 +22,17 @@ test("first-owner claim cannot replace an existing owner", () => {
   assert.match(migration, /outreach_user_settings enable row level security/);
 });
 
-test("public UI begins with private setup and keeps the synthetic dashboard isolated", () => {
+test("official Pages opens Supabase Auth directly while forks keep private setup", () => {
   const setup = read("components/outreach-setup.tsx");
   const page = read("app/page.tsx");
+  const deployment = read("lib/outreach-deployment.ts");
   assert.match(page, /if \(!supabase\) return <WorkspaceConnectionGate \/>/);
+  assert.match(page, /runtimeEnv\.VITE_SUPABASE_URL \?\? deploymentCloudConfig\?\.url \?\? storedCloudConfig\?\.url/);
+  assert.match(page, /if \(!session\) return <SignIn client=\{supabase\} \/>/);
+  assert.match(deployment, /OUTREACH_HOST = "melvinroy\.github\.io"/);
+  assert.match(deployment, /OUTREACH_PATH = "\/Outreach"/);
+  assert.match(deployment, /OUTREACH_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_/);
+  assert.doesNotMatch(deployment, /eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
   assert.doesNotMatch(page, /if \(!supabase\) return <ConfigurationError \/>/);
   assert.match(setup, /WorkspaceConnectionDialog/);
   assert.match(setup, /Private workspace/);

@@ -6,4 +6,4 @@ The project accepts only browser-safe Supabase publishable keys in clients. Secr
 
 Before a release, run `npm run privacy:scan`, `npm run privacy:history`, `npm run security:audit`, `npm run typecheck`, `npm run lint`, and `npm test`, then review Supabase security and performance advisors on the target project.
 
-Keep leaked-password protection enabled in Supabase Auth when the project plan supports it. Never grant `TRUNCATE`, `REFERENCES`, or `TRIGGER` on Outreach tables to browser roles. The public Pages deployment must remain setup-first and synthetic; attach private Supabase configuration only to a private deployment.
+Keep leaked-password protection enabled in Supabase Auth when the project plan supports it. Never grant `TRUNCATE`, `REFERENCES`, or `TRIGGER` on Outreach tables to browser roles. A named public frontend may include only its browser-safe Supabase project URL and modern publishable key so it can open Auth directly; all data access must remain protected by Auth, the installation allowlist, and RLS.

@@ -12,7 +12,7 @@ if [[ ${#release_files[@]} -eq 0 ]]; then
   exit 1
 fi
 
-patterns='(sb_secret_|service_role[^[:alnum:]_]+[A-Za-z0-9._-]{16,}|-----BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY-----|gh[pousr]_[A-Za-z0-9]{20,}|appgprj_[A-Za-z0-9]{20,}|https://[a-z0-9]{20}\.supabase\.co)'
+patterns='(sb_secret_|service_role[^[:alnum:]_]+[A-Za-z0-9._-]{16,}|-----BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY-----|gh[pousr]_[A-Za-z0-9]{20,}|appgprj_[A-Za-z0-9]{20,})'
 if rg -n --pcre2 "$patterns" "${release_files[@]}"; then
   echo "Privacy scan failed: installation-specific or secret-shaped value found."
   exit 1

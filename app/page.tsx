@@ -20,6 +20,7 @@ import {
   enterDemoMode, getStoredCloudConfig, isDemoMode, PrivacyDialog,
   ProfileSetup, WorkspaceConnectionDialog, WorkspaceConnectionGate, type OutreachUserSettings,
 } from "@/components/outreach-setup";
+import { getDeploymentCloudConfig } from "@/lib/outreach-deployment";
 
 type ContactStatus = "not_contacted" | "request_sent" | "connected" | "messaged" | "replied" | "meeting_scheduled" | "referred" | "withdrawn" | "closed";
 type Contact = { id: string; full_name: string; employer: string; current_title: string | null; location: string | null; linkedin_profile_url: string; connection_status: ContactStatus };
@@ -58,8 +59,9 @@ type QueueScope = "today" | "unreached" | "recent" | "all" | "custom";
 
 const runtimeEnv = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
 const storedCloudConfig = getStoredCloudConfig();
-const SUPABASE_URL = runtimeEnv.VITE_SUPABASE_URL ?? storedCloudConfig?.url ?? "";
-const SUPABASE_PUBLISHABLE_KEY = runtimeEnv.VITE_SUPABASE_PUBLISHABLE_KEY ?? storedCloudConfig?.publishableKey ?? "";
+const deploymentCloudConfig = getDeploymentCloudConfig();
+const SUPABASE_URL = runtimeEnv.VITE_SUPABASE_URL ?? deploymentCloudConfig?.url ?? storedCloudConfig?.url ?? "";
+const SUPABASE_PUBLISHABLE_KEY = runtimeEnv.VITE_SUPABASE_PUBLISHABLE_KEY ?? deploymentCloudConfig?.publishableKey ?? storedCloudConfig?.publishableKey ?? "";
 const supabase = SUPABASE_URL && SUPABASE_PUBLISHABLE_KEY
   ? createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { persistSession: true, detectSessionInUrl: true } })
   : null;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.15 — Direct hosted login
+
+- Preconfigure only the official GitHub Pages hostname with the browser-safe Supabase project URL and publishable key.
+- Open password or email-link login directly on the hosted Outreach URL and restore existing sessions automatically.
+- Keep clones and forks setup-first while preserving the synthetic dashboard as an explicit preview.
+
 ## 1.0.14 — Private login by default
 
 - Default unconfigured browsers to the private Supabase connection gate instead of the synthetic dashboard.
