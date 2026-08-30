@@ -141,7 +141,7 @@ a { color: inherit; }
 .outreach-table thead { position: sticky; top: 0; z-index: 8; background: #f6f8fa; }
 .outreach-table th { height: 31px; padding: 0 9px; border-bottom: 1px solid #dfe5eb; color: #788695; font-size: 7px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
 .outreach-table th:nth-child(1) { width: 36px; }.outreach-table th:nth-child(2) { width: 38px; }.outreach-table th:nth-child(3) { width: 18%; }.outreach-table th:nth-child(4) { width: 19%; }.outreach-table th:nth-child(5) { width: 21%; }.outreach-table th:nth-child(6) { width: 80px; }.outreach-table th:nth-child(7) { width: 104px; }.outreach-table th:nth-child(8) { width: 148px; }
-.live-outreach-table { min-width: 1160px; }.live-outreach-table th:nth-child(1) { width: 36px; }.live-outreach-table th:nth-child(2) { width: 38px; }.live-outreach-table th:nth-child(3) { width: 76px; }.live-outreach-table th:nth-child(4) { width: 18%; }.live-outreach-table th:nth-child(5) { width: 18%; }.live-outreach-table th:nth-child(6) { width: 19%; }.live-outreach-table th:nth-child(7) { width: 80px; }.live-outreach-table th:nth-child(8) { width: 104px; }.live-outreach-table th:nth-child(9) { width: 148px; }
+.live-outreach-table { min-width: 1120px; }.live-outreach-table th:nth-child(1) { width: 36px; }.live-outreach-table th:nth-child(2) { width: 38px; }.live-outreach-table th:nth-child(3) { width: 76px; }.live-outreach-table th:nth-child(4) { width: 18%; }.live-outreach-table th:nth-child(5) { width: 18%; }.live-outreach-table th:nth-child(6) { width: 19%; }.live-outreach-table th:nth-child(7) { width: 80px; }.live-outreach-table th:nth-child(8) { width: 104px; }.live-outreach-table th:nth-child(9) { width: 108px; }
 .outreach-table td { height: 37px; padding: 0 9px; border-bottom: 1px solid #edf0f3; color: #52677c; font-size: 9px; }
 .select-cell { padding-inline: 8px!important; text-align: center!important; }
 .select-cell [data-slot="checkbox"] { width: 15px; height: 15px; border-color: #b8c8d7; background: #fff; }
@@ -153,9 +153,14 @@ a { color: inherit; }
 .found-cell { color: #7a8b9b!important; font-size: 8px!important; font-weight: 700!important; white-space: nowrap; }.mobile-found-date { display: none; font-style: normal; }
 .person-cell, .role-cell, .opportunity-cell { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .person-cell strong { color: #173550; font-size: 10px; font-weight: 750; }
+.person-link { color: #173550; font-size: 10px; font-weight: 750; text-decoration: none; }
+.person-link:hover { color: #0a66c2; text-decoration: underline; text-underline-offset: 2px; }
 .person-cell span { margin-left: 4px; color: #8995a1; font-size: 8px; }
 .role-cell { color: #4f6478!important; }
 .opportunity-cell { color: #60768a!important; }
+.opportunity-link { min-width: 0; display: inline-flex; align-items: center; gap: 4px; overflow: hidden; color: #2d668f; font: inherit; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+.opportunity-link:hover { color: #0a66c2; text-decoration: underline; text-underline-offset: 2px; }
+.opportunity-link svg { flex: 0 0 auto; }
 .track-label { height: 19px; display: inline-flex; align-items: center; padding: 0 7px; border-radius: 99px; font-size: 7px; font-weight: 800; }
 .track-hiring_manager { color: #25639a; background: #eaf4fd; }
 .track-executive { color: #765592; background: #f4eef8; }
@@ -169,6 +174,15 @@ a { color: inherit; }
 .actions-cell { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 .actions-cell a, .actions-cell button { width: 25px; height: 25px; display: inline-grid; place-items: center; border: 1px solid #dce4eb; border-radius: 5px; color: #587087; background: #fff; text-decoration: none; cursor: pointer; }
 .actions-cell a:hover, .actions-cell button:hover { border-color: #a9c8e4; color: #0a66c2; background: #f3f8fd; }
+.actions-cell .discard-button:hover { border-color: #e1b8b4; color: #a43f39; background: #fff5f4; }
+.actions-cell button:disabled { opacity: .38; cursor: not-allowed; }
+.discarded-card { min-height: 0; }
+.discarded-table { min-width: 850px; table-layout: fixed; }
+.discarded-table th { height: 40px; padding: 0 12px; border-bottom: 1px solid #dfe5eb; color: #788695; font-size: 10px; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.discarded-table td { height: 50px; padding: 0 12px; border-bottom: 1px solid #edf0f3; color: #52677c; font-size: 12px; }
+.discarded-table th:nth-child(1) { width: 24%; }.discarded-table th:nth-child(2) { width: 24%; }.discarded-table th:nth-child(3) { width: 28%; }.discarded-table th:nth-child(4) { width: 16%; }.discarded-table th:nth-child(5) { width: 70px; }
+.discarded-table .actions-cell { justify-content: flex-end; }
+.actions-cell .restore-button:hover { border-color: #a9c8e4; color: #0a66c2; background: #f3f8fd; }
 .linkedin-mark { color: #0a66c2; font-family: Arial, sans-serif; font-size: 11px; font-weight: 900; letter-spacing: -.07em; }
 .detail-row td { height: auto; padding: 0!important; background: #f7fafc; }
 .detail-grid { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.35fr); gap: 16px; padding: 12px 18px 13px 47px; border-bottom: 1px solid #dfe7ee; }
@@ -291,6 +305,13 @@ a { color: inherit; }
   .followup-row { grid-template-columns: minmax(0,1fr) 120px; gap: 8px 12px; padding: 9px; }.next-action { grid-column: 1; }.followup-row > .status-control { grid-column: 2; grid-row: 1; }.followup-linkedin { grid-column: 2; grid-row: 2; }.followup-person span { white-space: normal; line-height: 1.35; }
   .task-heading h2 { max-width: 180px; }.task-table { min-width: 720px; }.workflow-row { grid-template-columns: 88px minmax(0,1fr); }.workflow-row time { display: none; }
   .conversation-task-row { grid-template-columns: 24px minmax(0,1fr); gap: 8px; }.conversation-task-content { grid-column: 2; }.context-required { grid-template-columns: 1fr; }.context-required button { grid-column: 1; grid-row: auto; width: fit-content; margin-top: 5px; }
+}
+
+/* Linked text replaces redundant row actions without changing table hierarchy. */
+.person-cell .person-link { display: block; margin: 0; color: #25364a; font-size: 12px; line-height: 1.35; font-weight: 600; }
+@media (max-width: 760px) {
+  .person-cell .person-link { font-size: 11px; }
+  .discarded-table { min-width: 720px; }
 }
 @media (max-width: 480px) {
   .gate-shell { padding: max(12px,env(safe-area-inset-top)) 12px max(18px,env(safe-area-inset-bottom)); place-items: center; }

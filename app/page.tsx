@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import {
-  BarChart3, Bot, BriefcaseBusiness, CalendarDays, Check, ChevronDown, ChevronUp, CircleAlert,
+  Archive, BarChart3, Bot, BriefcaseBusiness, CalendarDays, Check, ChevronDown, ChevronUp, CircleAlert,
   Clock3, Copy, ExternalLink, GitPullRequest, KeyRound, ListChecks, LoaderCircle,
   LockKeyhole, LogOut, Mail, MessageSquareText, RefreshCw, Search, Send, ShieldCheck,
-  Sparkles, UserRoundCheck, UsersRound,
+  RotateCcw, Sparkles, UserRoundCheck, UsersRound,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -54,7 +54,8 @@ type ConversationTask = {
 };
 type Phase5WorkflowRun = { id: string; workflow_type: "acceptance_wait" | "inbound_message" | "draft_preparation" | "draft_review" | "proactive_follow_up_batch" | "reply_batch"; status: "running" | "waiting_for_user" | "completed" | "partially_completed" | "failed"; last_node: string; checkpoint: Record<string, unknown>; started_at: string; updated_at: string };
 type Phase5BatchReceipt = BatchReceipt & { actionType: "proactive_follow_up" | "reply" };
-type DashboardData = { run: OutreachRun; runs: OutreachRun[]; contacts: Contact[]; queue: QueueItem[]; activities: Activity[]; guardrails: GuardrailRecord[]; discoveryDuplicates: DiscoveryDuplicate[]; tasks: RelationshipTask[]; conversationTasks: ConversationTask[]; workflowRuns: WorkflowRun[]; phase5WorkflowRuns: Phase5WorkflowRun[]; activeBatch: BatchReceipt | null; activePhase4Batches: Phase4BatchReceipt[]; activePhase5Batches: Phase5BatchReceipt[]; settings: OutreachUserSettings | null };
+type DiscardedContact = { contact_id: string; discarded_at: string; discarded_by: string };
+type DashboardData = { run: OutreachRun; runs: OutreachRun[]; contacts: Contact[]; queue: QueueItem[]; activities: Activity[]; guardrails: GuardrailRecord[]; discoveryDuplicates: DiscoveryDuplicate[]; discardedContacts: DiscardedContact[]; tasks: RelationshipTask[]; conversationTasks: ConversationTask[]; workflowRuns: WorkflowRun[]; phase5WorkflowRuns: Phase5WorkflowRun[]; activeBatch: BatchReceipt | null; activePhase4Batches: Phase4BatchReceipt[]; activePhase5Batches: Phase5BatchReceipt[]; settings: OutreachUserSettings | null };
 type QueueScope = "today" | "unreached" | "recent" | "all" | "custom";
 
 const runtimeEnv = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
@@ -140,7 +141,7 @@ async function loadDashboard(client: SupabaseClient, session: Session) {
   const refreshResult = await client.rpc("refresh_outreach_relationship_tasks");
   if (refreshResult.error) throw refreshResult.error;
 
-  const [runs, contacts, recommendations, activitiesResult, guardrailsResult, discoveryDuplicatesResult, tasksResult, conversationTasksResult, workflowRunsResult, phase5WorkflowRunsResult, activeBatchResult, activePhase4BatchesResult, activePhase5BatchesResult, settingsResult] = await Promise.all([
+  const [runs, contacts, recommendations, activitiesResult, guardrailsResult, discoveryDuplicatesResult, discardedContactsResult, tasksResult, conversationTasksResult, workflowRunsResult, phase5WorkflowRunsResult, activeBatchResult, activePhase4BatchesResult, activePhase5BatchesResult, settingsResult] = await Promise.all([
     fetchAllRuns(client), fetchAllContacts(client), fetchAllRecommendations(client),
     client.from("outreach_activities").select("id,contact_id,activity_type,activity_at,evidence_source").order("activity_at", { ascending: false }),
     client.from("outreach_assist_sessions")
@@ -150,6 +151,9 @@ async function loadDashboard(client: SupabaseClient, session: Session) {
     client.from("outreach_discovery_duplicates")
       .select("duplicate_reason,detected_at")
       .order("detected_at", { ascending: false }),
+    client.from("outreach_discarded_contacts")
+      .select("contact_id,discarded_at,discarded_by")
+      .order("discarded_at", { ascending: false }),
     client.from("outreach_relationship_tasks")
       .select("id,contact_id,task_type,status,due_at,draft_message,source,created_at")
       .in("status", ["due", "queued"]).order("due_at", { ascending: true }),
@@ -176,7 +180,7 @@ async function loadDashboard(client: SupabaseClient, session: Session) {
       .select("user_id,display_name,professional_summary,target_roles,target_locations,target_companies,message_preferences,invitation_withdrawal_days,follow_up_grace_hours,onboarding_completed")
       .eq("user_id", session.user.id).maybeSingle(),
   ]);
-  const error = activitiesResult.error ?? guardrailsResult.error ?? discoveryDuplicatesResult.error ?? tasksResult.error ?? conversationTasksResult.error ?? workflowRunsResult.error ?? phase5WorkflowRunsResult.error ?? activeBatchResult.error ?? activePhase4BatchesResult.error ?? activePhase5BatchesResult.error ?? settingsResult.error;
+  const error = activitiesResult.error ?? guardrailsResult.error ?? discoveryDuplicatesResult.error ?? discardedContactsResult.error ?? tasksResult.error ?? conversationTasksResult.error ?? workflowRunsResult.error ?? phase5WorkflowRunsResult.error ?? activeBatchResult.error ?? activePhase4BatchesResult.error ?? activePhase5BatchesResult.error ?? settingsResult.error;
   if (error) throw error;
 
   const contactsById = new Map(contacts.map((contact) => [contact.id, contact]));
@@ -198,6 +202,7 @@ async function loadDashboard(client: SupabaseClient, session: Session) {
     activities: (activitiesResult.data ?? []) as Activity[],
     guardrails: (guardrailsResult.data ?? []) as GuardrailRecord[],
     discoveryDuplicates: (discoveryDuplicatesResult.data ?? []) as DiscoveryDuplicate[],
+    discardedContacts: (discardedContactsResult.data ?? []) as DiscardedContact[],
     tasks: (tasksResult.data ?? []) as RelationshipTask[],
     conversationTasks: (conversationTasksResult.data ?? []) as ConversationTask[],
     workflowRuns: (workflowRunsResult.data ?? []) as WorkflowRun[],
@@ -354,28 +359,29 @@ function StatusControl({ contact, status, busy, onChange }: { contact: Contact; 
   </select></div>;
 }
 
-function QueueRow({ item, status, guardrailReason, copiedId, expanded, busy, selected, onSelectedChange, onCopy, onToggle, onStatusChange }: {
+function QueueRow({ item, status, guardrailReason, copiedId, expanded, busy, selected, onSelectedChange, onCopy, onToggle, onStatusChange, onDiscard }: {
   item: QueueItem; status: ContactStatus; copiedId: number | null; expanded: boolean; busy: boolean;
   guardrailReason: GuardrailReason | null;
   selected: boolean; onSelectedChange: (selected: boolean) => void; onCopy: (item: QueueItem) => void; onToggle: () => void;
   onStatusChange: (contact: Contact, status: ContactStatus) => void;
+  onDiscard: (item: QueueItem) => void;
 }) {
   const relationship = item.track === "hiring_manager" ? item.relationship_to_opening ?? "Hiring organization leader" : `${item.estimated_levels_above ?? "2–3"} levels above · ${item.seniority_band ?? "Senior executive"}`;
+  const opportunityUrl = item.active_job_url ?? item.hiring_post_url;
   return <>
     <TableRow className={expanded ? "contact-row expanded" : "contact-row"}>
       <TableCell className="select-cell"><Checkbox checked={selected} disabled={status !== "not_contacted" || Boolean(guardrailReason)} onCheckedChange={(checked) => onSelectedChange(checked === true)} aria-label={`Select ${item.contact.full_name} for a Codex batch`} /></TableCell>
       <TableCell className="rank-cell">{String(item.priority).padStart(2, "0")}</TableCell>
       <TableCell className="found-cell">{formatShortDate(item.run_date)}</TableCell>
-      <TableCell className="person-cell"><strong>{item.contact.full_name}</strong><span>· {item.contact.employer}<i className="mobile-found-date"> · {formatShortDate(item.run_date)}</i></span></TableCell>
+      <TableCell className="person-cell">{item.contact.linkedin_profile_url.startsWith("http") ? <a className="person-link" href={item.contact.linkedin_profile_url} target="_blank" rel="noreferrer" aria-label={`Open ${item.contact.full_name} on LinkedIn`}>{item.contact.full_name}</a> : <strong>{item.contact.full_name}</strong>}<span>· {item.contact.employer}<i className="mobile-found-date"> · {formatShortDate(item.run_date)}</i></span></TableCell>
       <TableCell className="role-cell" title={item.contact.current_title ?? "Leadership contact"}>{item.contact.current_title ?? "Leadership contact"}</TableCell>
-      <TableCell className="opportunity-cell" title={item.opening_title ?? "Strategic relationship"}>{item.opening_title ?? "Strategic relationship"}</TableCell>
+      <TableCell className="opportunity-cell" title={item.opening_title ?? "Strategic relationship"}>{opportunityUrl ? <a className="opportunity-link" href={opportunityUrl} target="_blank" rel="noreferrer" aria-label={`Open ${item.opening_title ?? "opportunity"} for ${item.contact.full_name}`}>{item.opening_title ?? "View opportunity"}<ExternalLink size={11} /></a> : item.opening_title ?? "Strategic relationship"}</TableCell>
       <TableCell><span className={`track-label track-${item.track}`}>{item.track === "hiring_manager" ? "Hiring" : "Executive"}</span></TableCell>
       <TableCell>{guardrailReason ? <span className="guardrail-badge"><ShieldCheck size={11} />{guardrailLabels[guardrailReason]}</span> : <StatusControl contact={item.contact} status={status} busy={busy} onChange={onStatusChange} />}</TableCell>
       <TableCell className="actions-cell">
-        {item.contact.linkedin_profile_url.startsWith("http") && <a href={item.contact.linkedin_profile_url} target="_blank" rel="noreferrer" aria-label={`Open ${item.contact.full_name} on LinkedIn`} title="Open LinkedIn"><span className="linkedin-mark">in</span></a>}
-        {(item.active_job_url || item.hiring_post_url) && <a href={item.active_job_url ?? item.hiring_post_url ?? "#"} target="_blank" rel="noreferrer" aria-label={`Open role or activity for ${item.contact.full_name}`} title="Open role or activity"><ExternalLink size={14} /></a>}
         <button onClick={() => onCopy(item)} aria-label={`Copy message for ${item.contact.full_name}`} title="Copy outreach note">{copiedId === item.id ? <Check size={14} /> : <Copy size={14} />}</button>
         <button onClick={onToggle} aria-label={`${expanded ? "Hide" : "Show"} details for ${item.contact.full_name}`} aria-expanded={expanded} title={expanded ? "Hide details" : "Show details"}>{expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button>
+        <button className="discard-button" disabled={busy || status !== "not_contacted"} onClick={() => onDiscard(item)} aria-label={`Discard ${item.contact.full_name}`} title={status === "not_contacted" ? "Move to Discarded" : "Only unreached contacts can be discarded"}>{busy ? <LoaderCircle className="spin" size={14} /> : <Archive size={14} />}</button>
       </TableCell>
     </TableRow>
     {expanded && <TableRow className="detail-row"><TableCell colSpan={9}><div className="detail-grid">
@@ -383,6 +389,24 @@ function QueueRow({ item, status, guardrailReason, copiedId, expanded, busy, sel
       <div className="compact-message"><MessageSquareText size={14} /><p>{item.personalized_message}</p><button onClick={() => onCopy(item)}>{copiedId === item.id ? <Check size={14} /> : <Copy size={14} />}<span>{copiedId === item.id ? "Copied" : "Copy note"}</span></button></div>
     </div></TableCell></TableRow>}
   </>;
+}
+
+function DiscardedQueue({ items, discardedByContact, busyContactId, onRestore }: {
+  items: QueueItem[]; discardedByContact: Map<string, DiscardedContact>; busyContactId: string | null;
+  onRestore: (item: QueueItem) => void;
+}) {
+  return <Card className="queue-card discarded-card"><div className="followup-heading"><div><p className="kicker">DO NOT CONTACT</p><h2>Discarded contacts</h2></div><span>{items.length} stored</span></div>
+    <div className="table-scroll"><Table className="discarded-table"><TableHeader><TableRow><TableHead>Person</TableHead><TableHead>Current role</TableHead><TableHead>Opportunity / purpose</TableHead><TableHead>Discarded</TableHead><TableHead className="actions-head">Action</TableHead></TableRow></TableHeader><TableBody>
+      {items.map((item) => { const discarded = discardedByContact.get(item.contact.id); const opportunityUrl = item.active_job_url ?? item.hiring_post_url; return <TableRow key={item.contact.id}>
+        <TableCell className="person-cell">{item.contact.linkedin_profile_url.startsWith("http") ? <a className="person-link" href={item.contact.linkedin_profile_url} target="_blank" rel="noreferrer">{item.contact.full_name}</a> : <strong>{item.contact.full_name}</strong>}<span>· {item.contact.employer}</span></TableCell>
+        <TableCell className="role-cell">{item.contact.current_title ?? "Leadership contact"}</TableCell>
+        <TableCell className="opportunity-cell">{opportunityUrl ? <a className="opportunity-link" href={opportunityUrl} target="_blank" rel="noreferrer">{item.opening_title ?? "View opportunity"}<ExternalLink size={11} /></a> : item.opening_title ?? "Strategic relationship"}</TableCell>
+        <TableCell>{discarded ? new Date(discarded.discarded_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}</TableCell>
+        <TableCell className="actions-cell"><button className="restore-button" disabled={busyContactId === item.contact.id} onClick={() => onRestore(item)} aria-label={`Restore ${item.contact.full_name}`} title="Restore to outreach"><RotateCcw size={14} /></button></TableCell>
+      </TableRow>; })}
+    </TableBody></Table>{!items.length && <div className="followup-empty"><Archive size={23} /><strong>No discarded contacts</strong><span>People you choose not to contact will be safely stored here.</span></div>}</div>
+    <div className="table-foot"><span>Restoring a person returns them to the outreach queue.</span><strong>{items.length} stored</strong></div>
+  </Card>;
 }
 
 function RelationshipTaskQueue({
@@ -484,10 +508,11 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
   const [queueScope, setQueueScope] = useState<QueueScope>("today");
   const [rangeStart, setRangeStart] = useState(() => shiftDateKey(todayKey, -6));
   const [rangeEnd, setRangeEnd] = useState(todayKey);
-  const [view, setView] = useState<"today" | "pending" | "followups" | "replies" | "conversations" | "pipeline" | "workflow">("today");
+  const [view, setView] = useState<"today" | "pending" | "followups" | "replies" | "conversations" | "discarded" | "pipeline" | "workflow">("today");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [statusOverrides, setStatusOverrides] = useState<Record<string, ContactStatus>>({});
   const [activities, setActivities] = useState(data.activities);
+  const [discardedContacts, setDiscardedContacts] = useState(data.discardedContacts);
   const [selectedIds, setSelectedIds] = useState<Set<number>>(() => new Set());
   const [activeBatch, setActiveBatch] = useState<BatchReceipt | null>(data.activeBatch);
   const [relationshipTasks, setRelationshipTasks] = useState(data.tasks);
@@ -503,6 +528,7 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
   const [busyContactId, setBusyContactId] = useState<string | null>(null);
   const [actionFeedback, setActionFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const statusFor = (contact: Contact) => statusOverrides[contact.id] ?? contact.connection_status;
+  const discardedByContact = useMemo(() => new Map(discardedContacts.map((item) => [item.contact_id, item])), [discardedContacts]);
   const guardrailByContact = useMemo(() => {
     const latest = new Map<string, GuardrailReason>();
     for (const item of data.guardrails) if (!latest.has(item.contact_id)) latest.set(item.contact_id, item.skip_reason);
@@ -516,11 +542,13 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
     if (reason === "previously_contacted" && status !== "not_contacted") return null;
     return reason;
   };
-  const readyQueue = data.queue.filter((item) => statusFor(item.contact) === "not_contacted" && !guardrailByContact.has(item.contact.id));
-  const todayQueue = data.queue.filter((item) => item.run_date === todayKey);
+  const availableQueue = data.queue.filter((item) => !discardedByContact.has(item.contact.id));
+  const discardedQueue = data.queue.filter((item) => discardedByContact.has(item.contact.id));
+  const readyQueue = availableQueue.filter((item) => statusFor(item.contact) === "not_contacted" && !guardrailByContact.has(item.contact.id));
+  const todayQueue = availableQueue.filter((item) => item.run_date === todayKey);
   const recentStart = shiftDateKey(todayKey, -6);
-  const recentQueue = data.queue.filter((item) => item.run_date >= recentStart && item.run_date <= todayKey);
-  const scopedQueue = data.queue.filter((item) => {
+  const recentQueue = availableQueue.filter((item) => item.run_date >= recentStart && item.run_date <= todayKey);
+  const scopedQueue = availableQueue.filter((item) => {
     if (queueScope === "today") return item.run_date === todayKey;
     if (queueScope === "unreached") return statusFor(item.contact) === "not_contacted" && !guardrailByContact.has(item.contact.id);
     if (queueScope === "recent") return item.run_date >= recentStart && item.run_date <= todayKey;
@@ -576,6 +604,7 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
     const exportPayload = {
       export_version: "outreach-v1", exported_at: new Date().toISOString(),
       contacts: data.contacts, recommendations: data.queue,
+      discarded_contacts: discardedContacts,
       activities, relationship_tasks: relationshipTasks, conversation_tasks: conversationTasks,
       workflow_runs: data.workflowRuns, conversation_workflow_runs: data.phase5WorkflowRuns,
       preferences: data.settings,
@@ -591,6 +620,24 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
     window.location.reload(); return null;
   }
   async function copyMessage(item: QueueItem) { await navigator.clipboard.writeText(item.personalized_message); setCopiedId(item.id); window.setTimeout(() => setCopiedId(null), 1600); }
+  async function setDiscarded(item: QueueItem, discarded: boolean) {
+    setBusyContactId(item.contact.id); setActionFeedback(null);
+    const result = await client.rpc("set_outreach_contact_discarded", { p_contact_id: item.contact.id, p_discarded: discarded });
+    setBusyContactId(null);
+    if (result.error) return setActionFeedback({ type: "error", text: result.error.message });
+    if (discarded) {
+      const row = Array.isArray(result.data) ? result.data[0] as { contact_id: string; discarded_at: string; discarded_by: string } | undefined : undefined;
+      setDiscardedContacts((current) => [{ contact_id: item.contact.id, discarded_at: row?.discarded_at ?? new Date().toISOString(), discarded_by: row?.discarded_by ?? session.user.id }, ...current.filter((entry) => entry.contact_id !== item.contact.id)]);
+      setSelectedIds((current) => { const next = new Set(current); next.delete(item.id); return next; });
+      setExpandedId((current) => current === item.id ? null : current);
+      setActiveBatch(null);
+      setActionFeedback({ type: "success", text: `${item.contact.full_name} moved to Discarded · any unfinished outreach batch was cleared` });
+    } else {
+      setDiscardedContacts((current) => current.filter((entry) => entry.contact_id !== item.contact.id));
+      setActionFeedback({ type: "success", text: `${item.contact.full_name} restored to the outreach queue` });
+    }
+    window.setTimeout(() => setActionFeedback(null), 3000);
+  }
   function setItemSelected(itemId: number, selected: boolean) {
     setSelectedIds((current) => { const next = new Set(current); if (selected) next.add(itemId); else next.delete(itemId); return next; });
   }
@@ -598,7 +645,7 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
     setSelectedIds((current) => { const next = new Set(current); for (const item of selectableVisibleQueue) { if (allVisibleSelected) next.delete(item.id); else next.add(item.id); } return next; });
   }
   async function prepareBatch() {
-    const orderedRecommendationIds = data.queue.filter((item) => selectedIds.has(item.id) && statusFor(item.contact) === "not_contacted" && !guardrailByContact.has(item.contact.id)).map((item) => item.id);
+    const orderedRecommendationIds = availableQueue.filter((item) => selectedIds.has(item.id) && statusFor(item.contact) === "not_contacted" && !guardrailByContact.has(item.contact.id)).map((item) => item.id);
     if (!orderedRecommendationIds.length) return;
     if (orderedRecommendationIds.length > 15) { setActionFeedback({ type: "error", text: "A Codex batch can contain at most 15 contacts." }); return; }
     setBatchBusy(true); setActionFeedback(null);
@@ -729,13 +776,13 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
   <main className="workspace">
     <section className="workspace-bar"><div className="run-context"><p className="kicker">OUTREACH QUEUE</p><div><strong>{formatDate(todayKey)}</strong><span>{todayQueue.length ? `${todayQueue.length} verified contacts found today` : data.runs.length ? `No run today · latest was ${formatShortDate(data.run.run_date)}` : "No automation runs recorded yet"}</span></div></div><div className="summary-pills" aria-label="Outreach summary"><button type="button" onClick={() => { setView("today"); setQueueScope("today"); }}><b>{todayQueue.length}</b> found today</button><button type="button" className="ready" onClick={() => { setView("today"); setQueueScope("unreached"); }}><b>{actionReady}</b> unreached</button><span><b>{sentToday}</b> sent today</span></div></section>
     <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="workspace-tabs">
-      <TabsList className="view-tabs"><TabsTrigger value="today"><BriefcaseBusiness size={14} />Today&apos;s outreach</TabsTrigger><TabsTrigger value="pending"><Clock3 size={14} />Pending <span>{pendingCount}</span></TabsTrigger><TabsTrigger value="replies"><Mail size={14} />Replies <span>{replyTasks.length}</span></TabsTrigger><TabsTrigger value="followups"><MessageSquareText size={14} />Follow-ups <span>{followUpTasks.length}</span></TabsTrigger><TabsTrigger value="conversations"><UsersRound size={14} />Relationships <span>{conversations.length}</span></TabsTrigger><TabsTrigger value="pipeline"><BarChart3 size={14} />Pipeline</TabsTrigger><TabsTrigger value="workflow"><GitPullRequest size={14} />Workflow</TabsTrigger></TabsList>
+      <TabsList className="view-tabs"><TabsTrigger value="today"><BriefcaseBusiness size={14} />Today&apos;s outreach</TabsTrigger><TabsTrigger value="pending"><Clock3 size={14} />Pending <span>{pendingCount}</span></TabsTrigger><TabsTrigger value="replies"><Mail size={14} />Replies <span>{replyTasks.length}</span></TabsTrigger><TabsTrigger value="followups"><MessageSquareText size={14} />Follow-ups <span>{followUpTasks.length}</span></TabsTrigger><TabsTrigger value="conversations"><UsersRound size={14} />Relationships <span>{conversations.length}</span></TabsTrigger><TabsTrigger value="discarded"><Archive size={14} />Discarded <span>{discardedQueue.length}</span></TabsTrigger><TabsTrigger value="pipeline"><BarChart3 size={14} />Pipeline</TabsTrigger><TabsTrigger value="workflow"><GitPullRequest size={14} />Workflow</TabsTrigger></TabsList>
       {actionFeedback && <div className={`action-feedback ${actionFeedback.type}`} role="status">{actionFeedback.type === "success" ? <Check size={13} /> : <CircleAlert size={13} />}{actionFeedback.text}</div>}
       <TabsContent value="today" className="view-panel"><Card className="queue-card compact-queue"><div className="queue-scope-bar"><div className="queue-scope-filter" role="group" aria-label="Choose outreach date view">
         <button className={queueScope === "today" ? "active" : ""} onClick={() => setQueueScope("today")}>Today <span>{todayQueue.length}</span></button>
         <button className={queueScope === "unreached" ? "active" : ""} onClick={() => setQueueScope("unreached")}>Unreached <span>{actionReady}</span></button>
         <button className={queueScope === "recent" ? "active" : ""} onClick={() => setQueueScope("recent")}>Recent 7 days <span>{recentQueue.length}</span></button>
-        <button className={queueScope === "all" ? "active" : ""} onClick={() => setQueueScope("all")}>All <span>{data.queue.length}</span></button>
+        <button className={queueScope === "all" ? "active" : ""} onClick={() => setQueueScope("all")}>All <span>{availableQueue.length}</span></button>
         <button className={queueScope === "custom" ? "active calendar" : "calendar"} onClick={() => setQueueScope("custom")}><CalendarDays size={13} />Dates</button>
       </div><div className={missedRunDays === 0 ? "automation-health current" : "automation-health delayed"}><span><i />Last run {lastRunTime}</span>{missedRunDays !== 0 && <button type="button" onClick={() => void copyCatchUpCommand()}><RefreshCw size={12} />Catch up</button>}</div></div>
       {queueScope === "custom" && <div className="date-range-bar"><span>Found between</span><Input type="date" value={rangeStart} max={rangeEnd} onChange={(event) => { if (event.target.value) setRangeStart(event.target.value); }} aria-label="Outreach start date" /><span>and</span><Input type="date" value={rangeEnd} min={rangeStart} max={todayKey} onChange={(event) => { if (event.target.value) setRangeEnd(event.target.value); }} aria-label="Outreach end date" /><strong>{scopedQueue.length} contacts</strong></div>}
@@ -745,13 +792,14 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
         <button className={track === "executive" ? "active" : ""} onClick={() => setTrack("executive")}>Executives <span>{executives.length}</span></button>
       </div><div className="toolbar-actions">{selectedIds.size > 0 ? <Button className="batch-button" size="sm" onClick={prepareBatch} disabled={batchBusy || selectedIds.size > 15}>{batchBusy ? <LoaderCircle className="spin" /> : <Bot />}{batchBusy ? "Queuing…" : `Queue ${selectedIds.size} for Codex`}</Button> : activeBatch && <button className="batch-status-button" onClick={copyBatchCommand} title="Copy the Codex voice command"><Bot size={13} />{batchCommandCopied ? "Command copied" : `${activeBatch.selectedCount} ready for Codex`}</button>}<div className="queue-search"><Search size={14} /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, company or role" aria-label="Search shortlist" /></div></div></div>
       <div className="table-scroll"><Table className="outreach-table live-outreach-table"><TableHeader><TableRow><TableHead className="select-cell"><Checkbox checked={allVisibleSelected} disabled={!selectableVisibleQueue.length} onCheckedChange={toggleAllVisible} aria-label="Select all visible ready contacts" /></TableHead><TableHead className="rank-cell">#</TableHead><TableHead className="found-cell">Found</TableHead><TableHead>Person</TableHead><TableHead>Current role</TableHead><TableHead>Opportunity / purpose</TableHead><TableHead>Track</TableHead><TableHead>Status</TableHead><TableHead className="actions-head">Actions</TableHead></TableRow></TableHeader><TableBody>
-        {visibleQueue.map((item) => <QueueRow key={item.id} item={item} status={statusFor(item.contact)} guardrailReason={visibleGuardrailFor(item.contact)} selected={selectedIds.has(item.id)} onSelectedChange={(selected) => setItemSelected(item.id, selected)} copiedId={copiedId} expanded={expandedId === item.id} busy={busyContactId === item.contact.id} onCopy={copyMessage} onStatusChange={recordStatus} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />)}
+        {visibleQueue.map((item) => <QueueRow key={item.id} item={item} status={statusFor(item.contact)} guardrailReason={visibleGuardrailFor(item.contact)} selected={selectedIds.has(item.id)} onSelectedChange={(selected) => setItemSelected(item.id, selected)} copiedId={copiedId} expanded={expandedId === item.id} busy={busyContactId === item.contact.id} onCopy={copyMessage} onStatusChange={recordStatus} onDiscard={(discardedItem) => void setDiscarded(discardedItem, true)} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />)}
       </TableBody></Table>{!visibleQueue.length && <div className="no-results"><Search size={20} /><strong>{emptyTitle}</strong><span>{emptyCopy}</span></div>}</div>
       <div className="table-foot"><span>{selectedIds.size ? `${selectedIds.size} selected · click Queue for Codex` : activeBatch ? `${activeBatch.selectedCount} ready · say “Run my selected outreach batch” when you want Codex to send them` : "Select any ready contacts, or select all visible, to create one Codex batch"}</span><strong>{visibleQueue.length} shown {scopeLabel}</strong></div></Card></TabsContent>
       <TabsContent value="pending" className="view-panel"><RelationshipTaskQueue title="Stale requests ready to withdraw" kicker="14-DAY INVITATION CONTROL" emptyTitle="No stale invitations" emptyCopy={`${pendingCount} requests are pending, but none have reached 14 days.`} tasks={withdrawalTasks} contacts={contactsById} selectedIds={selectedWithdrawalIds} activeBatch={activeWithdrawalBatch} busy={batchBusy} onToggle={(id, checked) => toggleTask(setSelectedWithdrawalIds, id, checked)} onToggleAll={() => toggleAllTasks(setSelectedWithdrawalIds, withdrawalTasks, selectedWithdrawalIds)} onPrepare={() => void prepareRelationshipBatch("withdraw_invitation")} onCopyCommand={() => void copyPhase4Command(activeWithdrawalBatch)} /></TabsContent>
       <TabsContent value="replies" className="view-panel"><ConversationTaskQueue title="Inbound messages awaiting a contextual reply" kicker="INBOUND RESPONSE QUEUE" emptyTitle="No replies waiting" emptyCopy="When a connected person messages you, the generic follow-up is cancelled and the conversation appears here." tasks={replyTasks} contacts={contactsById} selectedIds={selectedReplyIds} activeBatch={activeReplyBatch} busyTaskId={busyConversationTaskId} batchBusy={batchBusy} onToggle={(id, checked) => toggleTask(setSelectedReplyIds, id, checked)} onToggleAll={() => toggleAllConversationTasks(replyTasks, selectedReplyIds, setSelectedReplyIds)} onApprove={(task, message) => void approveConversationTask(task, message)} onPrepareContext={(task, contact) => void prepareReplyContext(task, contact)} onPrepareBatch={() => void preparePhase5Batch("reply")} onCopyCommand={() => void copyPhase5Command(activeReplyBatch)} /></TabsContent>
       <TabsContent value="followups" className="view-panel"><ConversationTaskQueue title="Silent acceptances ready for a personalized follow-up" kicker="SIX-HOUR GRACE WINDOW" emptyTitle="No proactive follow-ups due" emptyCopy={waitingFollowUpCount ? `${waitingFollowUpCount} accepted connection${waitingFollowUpCount === 1 ? " is" : "s are"} still inside the six-hour response window.` : "An accepted connection with no inbound message will appear here after six hours."} tasks={followUpTasks} contacts={contactsById} selectedIds={selectedFollowUpIds} activeBatch={activeFollowUpBatch} busyTaskId={busyConversationTaskId} batchBusy={batchBusy} onToggle={(id, checked) => toggleTask(setSelectedFollowUpIds, id, checked)} onToggleAll={() => toggleAllConversationTasks(followUpTasks, selectedFollowUpIds, setSelectedFollowUpIds)} onApprove={(task, message) => void approveConversationTask(task, message)} onPrepareContext={(task, contact) => void prepareReplyContext(task, contact)} onPrepareBatch={() => void preparePhase5Batch("proactive_follow_up")} onCopyCommand={() => void copyPhase5Command(activeFollowUpBatch)} /></TabsContent>
       <TabsContent value="conversations" className="view-panel"><Card className="queue-card followup-card"><div className="followup-heading"><div><p className="kicker">ACTIVE RELATIONSHIPS</p><h2>Messages, replies, meetings and referrals</h2></div><span>{conversations.length} active</span></div><div className="followup-list">{conversations.map((contact) => { const currentStatus = statusFor(contact); const latest = activities.find((activity) => activity.contact_id === contact.id); return <div className="followup-row" key={contact.id}><div className="followup-person"><strong>{contact.full_name}</strong><span>{contact.current_title ?? "Leadership contact"} · {contact.employer}</span></div><div className="next-action"><small>Next action</small><strong>{nextActionLabels[currentStatus] ?? "Continue relationship"}</strong>{latest && <span>Updated {new Date(latest.activity_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}</span>}</div><StatusControl contact={contact} status={currentStatus} busy={busyContactId === contact.id} onChange={recordStatus} /><a className="followup-linkedin" href={contact.linkedin_profile_url} target="_blank" rel="noreferrer"><span className="linkedin-mark">in</span>Open profile</a></div>; })}{!conversations.length && <div className="followup-empty"><MessageSquareText size={23} /><strong>No active conversations</strong><span>Confirmed follow-ups will appear here.</span></div>}</div></Card></TabsContent>
+      <TabsContent value="discarded" className="view-panel"><DiscardedQueue items={discardedQueue} discardedByContact={discardedByContact} busyContactId={busyContactId} onRestore={(item) => void setDiscarded(item, false)} /></TabsContent>
       <TabsContent value="pipeline" className="view-panel"><section className="pipeline-layout">
         <Card className="analytics-card funnel-card"><div className="analytics-heading"><div><p className="kicker">DATABASE-RECORDED FUNNEL</p><h2>Relationship progress</h2></div><span>All time</span></div><div className="funnel-list">{pipeline.map((item) => <div className="funnel-row" key={item.label}><span><item.icon size={14} />{item.label}</span><div><i style={{ width: `${Math.max((item.value / pipelineMax) * 100, item.value ? 4 : 0)}%` }} /></div><strong>{item.value}</strong><small>{pipeline[0].value ? `${Math.round((item.value / pipeline[0].value) * 100)}%` : "0%"}</small></div>)}</div>{!outcomesRecorded && <div className="honesty-note"><CircleAlert size={15} /><span>No outreach outcomes have been logged yet. The dashboard does not infer activity from LinkedIn.</span></div>}</Card>
         <div className="side-analytics"><Card className="analytics-card guardrail-card"><div className="analytics-heading"><div><p className="kicker">DUPLICATE GUARDRAILS</p><h2>Historical matches caught</h2></div><span>{guardrailCounts.total + discoveryDuplicateCounts.total} protected</span></div><div className="guardrail-summary"><div><strong>{guardrailCounts.already_pending}</strong><span>Already pending</span></div><div><strong>{guardrailCounts.already_connected}</strong><span>Already connected</span></div><div><strong>{guardrailCounts.previously_contacted}</strong><span>Previously contacted</span></div></div><div className="discovery-guardrail"><span><ShieldCheck size={13} />Scheduled duplicates removed</span><strong>{discoveryDuplicateCounts.total}</strong><small>{discoveryDuplicateCounts.linkedin} LinkedIn · {discoveryDuplicateCounts.fallback} name/company</small></div><p className="guardrail-rate"><ShieldCheck size={14} />{checkedSessions ? `${Math.round((guardrailCounts.total / checkedSessions) * 100)}% of browser-checked contacts were protected from a duplicate send.` : "No browser preflights recorded yet."}</p></Card>

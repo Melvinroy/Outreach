@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.17 — Compact links and recoverable discard
+
+- Open LinkedIn directly from the person name and open job/activity sources from Opportunity / purpose.
+- Replace the two redundant source actions with a compact, recoverable discard control.
+- Add a persistent Discarded tab with one-click restore.
+- Prevent discarded contacts from entering Codex batches and clear an unfinished batch if one of its contacts is discarded.
+
 ## 1.0.16 — Mobile login fit
 
 - Move the synthetic demo action into a compact top-right button on the sign-in card.
