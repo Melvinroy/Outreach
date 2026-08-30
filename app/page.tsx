@@ -256,11 +256,11 @@ function SignIn({ client }: { client: SupabaseClient }) {
     setSent("recovery");
   }
   return (
-    <main className="gate-shell"><section className="gate-card" aria-labelledby="sign-in-title">
-      <div className="gate-brand"><span className="brand-symbol"><Send size={18} /></span><span>Outreach</span></div>
+    <main className="gate-shell"><section className="gate-card sign-in-card" aria-labelledby="sign-in-title">
+      <div className="gate-brand"><span className="gate-brand-name"><span className="brand-symbol"><Send size={18} /></span><span>Outreach</span></span><button type="button" className="gate-demo-link" onClick={enterDemoMode}><Sparkles size={13} />Demo</button></div>
       <div className="gate-icon"><LockKeyhole size={24} /></div><p className="kicker">PRIVATE WORKSPACE</p>
       <h1 id="sign-in-title">Open your workspace.</h1>
-      <p className="gate-copy">Use your password for everyday access or request a one-time email link. Only approved accounts can view outreach data.</p>
+      <p className="gate-copy">Use your password or a one-time email link. Only approved accounts can access Outreach.</p>
       <div className="auth-methods" role="tablist" aria-label="Sign-in method">
         <button role="tab" aria-selected={method === "password"} className={method === "password" ? "active" : ""} onClick={() => chooseMethod("password")}><KeyRound size={14} />Password</button>
         <button role="tab" aria-selected={method === "magic"} className={method === "magic" ? "active" : ""} onClick={() => chooseMethod("magic")}><Mail size={14} />Email link</button>
@@ -274,8 +274,7 @@ function SignIn({ client }: { client: SupabaseClient }) {
             ? <><Button className="gate-submit" disabled={busy || !email.trim() || !password} onClick={signInWithPassword}>{busy ? <LoaderCircle className="spin" /> : <KeyRound />}{busy ? "Signing in…" : "Sign in"}</Button><button className="auth-text-button" disabled={busy} onClick={requestPasswordReset}>Set or reset password</button></>
             : <Button className="gate-submit" disabled={busy || !email.trim()} onClick={requestLink}>{busy ? <LoaderCircle className="spin" /> : <Mail />}{busy ? "Sending link…" : "Send email link"}</Button>}
         </div>}
-      <Button variant="outline" onClick={enterDemoMode}><Sparkles />Open synthetic demo</Button>
-      <div className="gate-security"><ShieldCheck size={15} />Authentication by Supabase · access protected by row-level security</div>
+      <div className="gate-security"><ShieldCheck size={15} />Protected by Supabase Auth and row-level security</div>
     </section></main>
   );
 }

@@ -33,9 +33,13 @@ a { color: inherit; }
 .kicker { margin: 0; color: #77879a; font-size: 10px; line-height: 1; font-weight: 800; letter-spacing: .14em; }
 
 /* Authentication gate */
-.gate-shell { min-height: 100vh; padding: 32px 20px; display: grid; place-items: center; background: radial-gradient(circle at 50% -10%, rgba(20,116,210,.25), transparent 34%), #081a2d; }
+.gate-shell { min-height: 100vh; min-height: 100dvh; padding: 32px 20px; display: grid; place-items: center; background: radial-gradient(circle at 50% -10%, rgba(20,116,210,.25), transparent 34%), #081a2d; }
 .gate-card { width: min(460px, 100%); padding: 34px; border: 1px solid rgba(255,255,255,.1); border-radius: 18px; background: #fff; box-shadow: 0 30px 90px rgba(0,0,0,.28); }
-.gate-brand { display: flex; align-items: center; gap: 10px; margin-bottom: 40px; color: #142943; font-weight: 760; font-size: 17px; }
+.gate-brand { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 40px; color: #142943; font-weight: 760; font-size: 17px; }
+.gate-brand-name { display: inline-flex; align-items: center; gap: 10px; }
+.gate-demo-link { height: 30px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px; border: 1px solid #d5e0e9; border-radius: 999px; color: #39627f; background: #f8fbfd; font: inherit; font-size: 10px; font-weight: 700; cursor: pointer; }
+.gate-demo-link:hover { border-color: #9dbbd2; color: #155c94; background: #f1f7fb; }
+.gate-demo-link:focus-visible { outline: 2px solid #0a66c2; outline-offset: 2px; }
 .gate-icon { width: 50px; height: 50px; margin-bottom: 20px; display: grid; place-items: center; border-radius: 14px; color: #0a66c2; background: #eaf4ff; }
 .gate-icon.amber { color: #a7660c; background: #fff5e3; }
 .gate-card h1 { margin: 9px 0 10px; color: #10243c; font-size: clamp(26px, 6vw, 32px); line-height: 1.14; letter-spacing: -.035em; }
@@ -289,7 +293,22 @@ a { color: inherit; }
   .conversation-task-row { grid-template-columns: 24px minmax(0,1fr); gap: 8px; }.conversation-task-content { grid-column: 2; }.context-required { grid-template-columns: 1fr; }.context-required button { grid-column: 1; grid-row: auto; width: fit-content; margin-top: 5px; }
 }
 @media (max-width: 480px) {
+  .gate-shell { padding: max(12px,env(safe-area-inset-top)) 12px max(18px,env(safe-area-inset-bottom)); place-items: center; }
   .gate-card { padding: 26px 22px; }.gate-brand { margin-bottom: 30px; }.gate-security { align-items: flex-start; line-height: 1.4; }
+  .sign-in-card { padding: 18px 18px 16px; border-radius: 16px; }
+  .sign-in-card .gate-brand { margin-bottom: 13px; }
+  .sign-in-card .brand-symbol { width: 30px; height: 30px; border-radius: 8px; }
+  .sign-in-card .gate-demo-link { height: 28px; padding: 0 9px; }
+  .sign-in-card .gate-icon { width: 36px; height: 36px; margin-bottom: 10px; border-radius: 10px; }
+  .sign-in-card .gate-icon svg { width: 18px; height: 18px; }
+  .sign-in-card h1 { margin: 6px 0 7px; font-size: 24px; }
+  .sign-in-card .gate-copy { margin-bottom: 13px; font-size: 12px; line-height: 1.45; }
+  .sign-in-card .auth-methods { height: 36px; margin-bottom: 11px; }
+  .sign-in-card .gate-form { gap: 6px; }
+  .sign-in-card .gate-form input { height: 40px; }
+  .sign-in-card .gate-submit { height: 40px; margin-top: 2px; }
+  .sign-in-card .auth-text-button { margin-top: 0; padding: 3px; }
+  .sign-in-card .gate-security { margin-top: 11px; padding-top: 10px; font-size: 9px; }
   .account-menu button { padding-inline: 8px; }.account-menu button svg { display: none; }.product-brand strong { font-size: 13px; }
   .track-filter button { font-size: 8px; }.track-filter button span { display: none; }.person-cell span { max-width: 145px; }.view-tabs { gap: 12px; }.view-tabs [data-slot="tabs-trigger"] { gap: 4px; font-size: 8px; }.view-tabs [data-slot="tabs-trigger"] svg { width: 12px; }.view-tabs [data-slot="tabs-trigger"] > span { display: none; }
 }

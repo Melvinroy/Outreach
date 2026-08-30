@@ -29,6 +29,9 @@ test("official Pages opens Supabase Auth directly while forks keep private setup
   assert.match(page, /if \(!supabase\) return <WorkspaceConnectionGate \/>/);
   assert.match(page, /runtimeEnv\.VITE_SUPABASE_URL \?\? deploymentCloudConfig\?\.url \?\? storedCloudConfig\?\.url/);
   assert.match(page, /if \(!session\) return <SignIn client=\{supabase\} \/>/);
+  assert.match(page, /gate-card sign-in-card/);
+  assert.match(page, /gate-demo-link/);
+  assert.doesNotMatch(page, />Open synthetic demo<\/Button>/);
   assert.match(deployment, /OUTREACH_HOST = "melvinroy\.github\.io"/);
   assert.match(deployment, /OUTREACH_PATH = "\/Outreach"/);
   assert.match(deployment, /OUTREACH_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_/);
@@ -44,6 +47,8 @@ test("official Pages opens Supabase Auth directly while forks keep private setup
   assert.match(page, /Today&apos;s outreach/);
   assert.match(setup, /workspace-connect/);
   const styles = read("app/globals.css");
+  assert.match(styles, /min-height: 100dvh/);
+  assert.match(styles, /\.sign-in-card \.gate-icon[^}]*width: 36px[^}]*height: 36px/);
   assert.match(styles, /demo-outreach-table \.actions-cell \{ display: table-cell/);
   assert.match(styles, /demo-account-menu \.workspace-connect[^}]*font-size: 0!important/);
   assert.match(styles, /Flat navy and white dashboard system/);

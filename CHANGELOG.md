@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.16 — Mobile login fit
+
+- Move the synthetic demo action into a compact top-right button on the sign-in card.
+- Tighten phone-only spacing, fields, and supporting copy so browser controls no longer cover login actions.
+- Use the dynamic mobile viewport and safe-area padding for in-app browsers on iPhone.
+
 ## 1.0.15 — Direct hosted login
 
 - Preconfigure only the official GitHub Pages hostname with the browser-safe Supabase project URL and publishable key.
