@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.13 — Persistent outreach backlog
+
+- Kept Today as the default while adding Unreached, Recent 7 days, All, and custom date-range views.
+- Loaded and paginated recommendations across every automation run instead of replacing the queue with the latest run.
+- Added found-today, cumulative-unreached, and sent-today counts plus the discovery date on every contact.
+- Added missed-run visibility and a supervised Catch up command that never sends invitations automatically.
+
 ## 1.0.12 — Aligned panel hierarchy
 
 - Added the same title-header anatomy to Today's outreach and every secondary dashboard tab.

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import {
-  BarChart3, Bot, BriefcaseBusiness, Check, ChevronDown, ChevronUp, CircleAlert,
+  BarChart3, Bot, BriefcaseBusiness, CalendarDays, Check, ChevronDown, ChevronUp, CircleAlert,
   Clock3, Copy, ExternalLink, GitPullRequest, KeyRound, ListChecks, LoaderCircle,
   LockKeyhole, LogOut, Mail, MessageSquareText, RefreshCw, Search, Send, ShieldCheck,
   Sparkles, UserRoundCheck, UsersRound,
@@ -24,7 +24,7 @@ import {
 type ContactStatus = "not_contacted" | "request_sent" | "connected" | "messaged" | "replied" | "meeting_scheduled" | "referred" | "withdrawn" | "closed";
 type Contact = { id: string; full_name: string; employer: string; current_title: string | null; location: string | null; linkedin_profile_url: string; connection_status: ContactStatus };
 type Recommendation = {
-  id: number; contact_id: string; track: "hiring_manager" | "executive"; priority: number;
+  id: number; run_id: string; contact_id: string; track: "hiring_manager" | "executive"; priority: number;
   relationship_to_opening: string | null; seniority_band: string | null; estimated_levels_above: number | null;
   opening_title: string | null; fit_assessment: string; genuine_gap: string | null;
   active_job_url: string | null; hiring_post_url: string | null; personalized_message: string; verified_at: string;
@@ -35,7 +35,7 @@ type Activity = {
   activity_type: "recommended" | "request_sent" | "connected" | "message_sent" | "reply_received" | "follow_up" | "meeting_scheduled" | "referral" | "invitation_withdrawn" | "closed" | "note";
   activity_at: string; evidence_source: "manual" | "browser_assisted" | "gmail_signal" | "import" | "system";
 };
-type QueueItem = Recommendation & { contact: Contact };
+type QueueItem = Recommendation & { contact: Contact; run_date: string };
 type BatchReceipt = { id: string; code: string; selectedCount: number; createdAt: string };
 type GuardrailReason = "already_pending" | "already_connected" | "previously_contacted";
 type GuardrailRecord = { contact_id: string; skip_reason: GuardrailReason; preflight_checked_at: string };
@@ -53,7 +53,8 @@ type ConversationTask = {
 };
 type Phase5WorkflowRun = { id: string; workflow_type: "acceptance_wait" | "inbound_message" | "draft_preparation" | "draft_review" | "proactive_follow_up_batch" | "reply_batch"; status: "running" | "waiting_for_user" | "completed" | "partially_completed" | "failed"; last_node: string; checkpoint: Record<string, unknown>; started_at: string; updated_at: string };
 type Phase5BatchReceipt = BatchReceipt & { actionType: "proactive_follow_up" | "reply" };
-type DashboardData = { run: OutreachRun; contacts: Contact[]; queue: QueueItem[]; activities: Activity[]; guardrails: GuardrailRecord[]; discoveryDuplicates: DiscoveryDuplicate[]; tasks: RelationshipTask[]; conversationTasks: ConversationTask[]; workflowRuns: WorkflowRun[]; phase5WorkflowRuns: Phase5WorkflowRun[]; activeBatch: BatchReceipt | null; activePhase4Batches: Phase4BatchReceipt[]; activePhase5Batches: Phase5BatchReceipt[]; settings: OutreachUserSettings | null };
+type DashboardData = { run: OutreachRun; runs: OutreachRun[]; contacts: Contact[]; queue: QueueItem[]; activities: Activity[]; guardrails: GuardrailRecord[]; discoveryDuplicates: DiscoveryDuplicate[]; tasks: RelationshipTask[]; conversationTasks: ConversationTask[]; workflowRuns: WorkflowRun[]; phase5WorkflowRuns: Phase5WorkflowRun[]; activeBatch: BatchReceipt | null; activePhase4Batches: Phase4BatchReceipt[]; activePhase5Batches: Phase5BatchReceipt[]; settings: OutreachUserSettings | null };
+type QueueScope = "today" | "unreached" | "recent" | "all" | "custom";
 
 const runtimeEnv = (import.meta as unknown as { env: Record<string, string | undefined> }).env;
 const storedCloudConfig = getStoredCloudConfig();
@@ -81,11 +82,53 @@ const guardrailLabels: Record<GuardrailReason, string> = {
   already_pending: "Already pending", already_connected: "Already connected", previously_contacted: "Previously contacted",
 };
 const formatDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+const formatShortDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+const dateKeyInTimeZone = (date = new Date(), timeZone = "Asia/Singapore") => {
+  const parts = new Intl.DateTimeFormat("en-US", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => parts.find((item) => item.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+};
+const shiftDateKey = (date: string, days: number) => {
+  const shifted = new Date(`${date}T00:00:00Z`); shifted.setUTCDate(shifted.getUTCDate() + days); return shifted.toISOString().slice(0, 10);
+};
+const dayGap = (older: string, newer: string) => Math.max(0, Math.round((Date.parse(`${newer}T00:00:00Z`) - Date.parse(`${older}T00:00:00Z`)) / 86_400_000));
 const uniqueActivityCount = (activities: Activity[], types: Activity["activity_type"][]) => new Set(activities.filter((activity) => types.includes(activity.activity_type)).map((activity) => activity.contact_id)).size;
 const authRedirectUrl = () => `${window.location.origin}${window.location.pathname}`;
 const friendlyAuthError = (message: string) => message.toLowerCase().includes("email rate limit")
   ? "The email service has reached its hourly limit. Wait about an hour, then try once. Password sign-in remains available."
   : message;
+
+async function fetchAllRuns(client: SupabaseClient) {
+  const rows: OutreachRun[] = []; const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const result = await client.from("outreach_runs").select("id,run_date,generated_at_sgt,actual_hiring_managers,actual_executives,company_count").order("run_date", { ascending: false }).order("generated_at_sgt", { ascending: false }).range(from, from + pageSize - 1);
+    if (result.error) throw result.error;
+    const page = (result.data ?? []) as OutreachRun[]; rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+async function fetchAllContacts(client: SupabaseClient) {
+  const rows: Contact[] = []; const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const result = await client.from("outreach_contacts").select("id,full_name,employer,current_title,location,linkedin_profile_url,connection_status").order("last_recommended_date", { ascending: false }).order("id", { ascending: true }).range(from, from + pageSize - 1);
+    if (result.error) throw result.error;
+    const page = (result.data ?? []) as Contact[]; rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
+
+async function fetchAllRecommendations(client: SupabaseClient) {
+  const rows: Recommendation[] = []; const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const result = await client.from("outreach_recommendations")
+      .select("id,run_id,contact_id,track,priority,relationship_to_opening,seniority_band,estimated_levels_above,opening_title,fit_assessment,genuine_gap,active_job_url,hiring_post_url,personalized_message,verified_at")
+      .order("verified_at", { ascending: false }).order("id", { ascending: false }).range(from, from + pageSize - 1);
+    if (result.error) throw result.error;
+    const page = (result.data ?? []) as Recommendation[]; rows.push(...page);
+    if (page.length < pageSize) return rows;
+  }
+}
 
 async function loadDashboard(client: SupabaseClient, session: Session) {
   const accessResult = await client.from("outreach_app_access").select("user_id").eq("user_id", session.user.id).maybeSingle();
@@ -95,16 +138,8 @@ async function loadDashboard(client: SupabaseClient, session: Session) {
   const refreshResult = await client.rpc("refresh_outreach_relationship_tasks");
   if (refreshResult.error) throw refreshResult.error;
 
-  const runResult = await client.from("outreach_runs")
-    .select("id,run_date,generated_at_sgt,actual_hiring_managers,actual_executives,company_count")
-    .order("run_date", { ascending: false }).limit(1).maybeSingle();
-  if (runResult.error) throw runResult.error;
-
-  const [contactsResult, recommendationsResult, activitiesResult, guardrailsResult, discoveryDuplicatesResult, tasksResult, conversationTasksResult, workflowRunsResult, phase5WorkflowRunsResult, activeBatchResult, activePhase4BatchesResult, activePhase5BatchesResult, settingsResult] = await Promise.all([
-    client.from("outreach_contacts").select("id,full_name,employer,current_title,location,linkedin_profile_url,connection_status").order("last_recommended_date", { ascending: false }),
-    client.from("outreach_recommendations")
-      .select("id,contact_id,track,priority,relationship_to_opening,seniority_band,estimated_levels_above,opening_title,fit_assessment,genuine_gap,active_job_url,hiring_post_url,personalized_message,verified_at")
-      .eq("run_id", runResult.data?.id ?? "00000000-0000-0000-0000-000000000000").order("track").order("priority"),
+  const [runs, contacts, recommendations, activitiesResult, guardrailsResult, discoveryDuplicatesResult, tasksResult, conversationTasksResult, workflowRunsResult, phase5WorkflowRunsResult, activeBatchResult, activePhase4BatchesResult, activePhase5BatchesResult, settingsResult] = await Promise.all([
+    fetchAllRuns(client), fetchAllContacts(client), fetchAllRecommendations(client),
     client.from("outreach_activities").select("id,contact_id,activity_type,activity_at,evidence_source").order("activity_at", { ascending: false }),
     client.from("outreach_assist_sessions")
       .select("contact_id,skip_reason,preflight_checked_at")
@@ -139,19 +174,25 @@ async function loadDashboard(client: SupabaseClient, session: Session) {
       .select("user_id,display_name,professional_summary,target_roles,target_locations,target_companies,message_preferences,invitation_withdrawal_days,follow_up_grace_hours,onboarding_completed")
       .eq("user_id", session.user.id).maybeSingle(),
   ]);
-  const error = contactsResult.error ?? recommendationsResult.error ?? activitiesResult.error ?? guardrailsResult.error ?? discoveryDuplicatesResult.error ?? tasksResult.error ?? conversationTasksResult.error ?? workflowRunsResult.error ?? phase5WorkflowRunsResult.error ?? activeBatchResult.error ?? activePhase4BatchesResult.error ?? activePhase5BatchesResult.error ?? settingsResult.error;
+  const error = activitiesResult.error ?? guardrailsResult.error ?? discoveryDuplicatesResult.error ?? tasksResult.error ?? conversationTasksResult.error ?? workflowRunsResult.error ?? phase5WorkflowRunsResult.error ?? activeBatchResult.error ?? activePhase4BatchesResult.error ?? activePhase5BatchesResult.error ?? settingsResult.error;
   if (error) throw error;
 
-  const contacts = (contactsResult.data ?? []) as Contact[];
   const contactsById = new Map(contacts.map((contact) => [contact.id, contact]));
-  const queue = ((recommendationsResult.data ?? []) as Recommendation[])
-    .map((recommendation) => ({ ...recommendation, contact: contactsById.get(recommendation.contact_id) }))
-    .filter((item): item is QueueItem => Boolean(item.contact));
+  const runDateById = new Map(runs.map((run) => [run.id, run.run_date]));
+  const latestRecommendationByContact = new Map<string, QueueItem>();
+  for (const recommendation of recommendations) {
+    const contact = contactsById.get(recommendation.contact_id); const runDate = runDateById.get(recommendation.run_id);
+    if (!contact || !runDate) continue;
+    const current = latestRecommendationByContact.get(recommendation.contact_id);
+    if (!current || runDate > current.run_date || (runDate === current.run_date && recommendation.priority < current.priority)) latestRecommendationByContact.set(recommendation.contact_id, { ...recommendation, contact, run_date: runDate });
+  }
+  const queue = Array.from(latestRecommendationByContact.values()).sort((a, b) => b.run_date.localeCompare(a.run_date) || a.priority - b.priority);
+  const fallbackRun = {
+    id: "00000000-0000-0000-0000-000000000000", run_date: dateKeyInTimeZone(),
+    generated_at_sgt: new Date().toISOString(), actual_hiring_managers: 0, actual_executives: 0, company_count: 0,
+  } as OutreachRun;
   return { authorized: true as const, data: {
-    run: (runResult.data ?? {
-      id: "00000000-0000-0000-0000-000000000000", run_date: new Date().toISOString().slice(0, 10),
-      generated_at_sgt: new Date().toISOString(), actual_hiring_managers: 0, actual_executives: 0, company_count: 0,
-    }) as OutreachRun, contacts, queue,
+    run: runs[0] ?? fallbackRun, runs, contacts, queue,
     activities: (activitiesResult.data ?? []) as Activity[],
     guardrails: (guardrailsResult.data ?? []) as GuardrailRecord[],
     discoveryDuplicates: (discoveryDuplicatesResult.data ?? []) as DiscoveryDuplicate[],
@@ -323,7 +364,8 @@ function QueueRow({ item, status, guardrailReason, copiedId, expanded, busy, sel
     <TableRow className={expanded ? "contact-row expanded" : "contact-row"}>
       <TableCell className="select-cell"><Checkbox checked={selected} disabled={status !== "not_contacted" || Boolean(guardrailReason)} onCheckedChange={(checked) => onSelectedChange(checked === true)} aria-label={`Select ${item.contact.full_name} for a Codex batch`} /></TableCell>
       <TableCell className="rank-cell">{String(item.priority).padStart(2, "0")}</TableCell>
-      <TableCell className="person-cell"><strong>{item.contact.full_name}</strong><span>· {item.contact.employer}</span></TableCell>
+      <TableCell className="found-cell">{formatShortDate(item.run_date)}</TableCell>
+      <TableCell className="person-cell"><strong>{item.contact.full_name}</strong><span>· {item.contact.employer}<i className="mobile-found-date"> · {formatShortDate(item.run_date)}</i></span></TableCell>
       <TableCell className="role-cell" title={item.contact.current_title ?? "Leadership contact"}>{item.contact.current_title ?? "Leadership contact"}</TableCell>
       <TableCell className="opportunity-cell" title={item.opening_title ?? "Strategic relationship"}>{item.opening_title ?? "Strategic relationship"}</TableCell>
       <TableCell><span className={`track-label track-${item.track}`}>{item.track === "hiring_manager" ? "Hiring" : "Executive"}</span></TableCell>
@@ -335,7 +377,7 @@ function QueueRow({ item, status, guardrailReason, copiedId, expanded, busy, sel
         <button onClick={onToggle} aria-label={`${expanded ? "Hide" : "Show"} details for ${item.contact.full_name}`} aria-expanded={expanded} title={expanded ? "Hide details" : "Show details"}>{expanded ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button>
       </TableCell>
     </TableRow>
-    {expanded && <TableRow className="detail-row"><TableCell colSpan={8}><div className="detail-grid">
+    {expanded && <TableRow className="detail-row"><TableCell colSpan={9}><div className="detail-grid">
       <div className="detail-context"><span><Sparkles size={13} />{relationship}</span><div className="mobile-status-control">{guardrailReason ? <span className="guardrail-badge"><ShieldCheck size={11} />{guardrailLabels[guardrailReason]}</span> : <StatusControl contact={item.contact} status={status} busy={busy} onChange={onStatusChange} />}</div><p><strong>Fit</strong>{item.fit_assessment}</p>{item.genuine_gap && <p><strong>Gap</strong>{item.genuine_gap}</p>}</div>
       <div className="compact-message"><MessageSquareText size={14} /><p>{item.personalized_message}</p><button onClick={() => onCopy(item)}>{copiedId === item.id ? <Check size={14} /> : <Copy size={14} />}<span>{copiedId === item.id ? "Copied" : "Copy note"}</span></button></div>
     </div></TableCell></TableRow>}
@@ -437,6 +479,10 @@ function ConversationTaskQueue({
 function Dashboard({ data, session, client }: { data: DashboardData; session: Session; client: SupabaseClient }) {
   const [query, setQuery] = useState(""); const [copiedId, setCopiedId] = useState<number | null>(null);
   const [track, setTrack] = useState<"all" | "hiring_manager" | "executive">("hiring_manager");
+  const todayKey = dateKeyInTimeZone();
+  const [queueScope, setQueueScope] = useState<QueueScope>("today");
+  const [rangeStart, setRangeStart] = useState(() => shiftDateKey(todayKey, -6));
+  const [rangeEnd, setRangeEnd] = useState(todayKey);
   const [view, setView] = useState<"today" | "pending" | "followups" | "replies" | "conversations" | "pipeline" | "workflow">("today");
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [statusOverrides, setStatusOverrides] = useState<Record<string, ContactStatus>>({});
@@ -469,9 +515,23 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
     if (reason === "previously_contacted" && status !== "not_contacted") return null;
     return reason;
   };
-  const hiring = data.queue.filter((item) => item.track === "hiring_manager");
-  const executives = data.queue.filter((item) => item.track === "executive");
-  const actionReady = data.queue.filter((item) => statusFor(item.contact) === "not_contacted" && !guardrailByContact.has(item.contact.id)).length;
+  const readyQueue = data.queue.filter((item) => statusFor(item.contact) === "not_contacted" && !guardrailByContact.has(item.contact.id));
+  const todayQueue = data.queue.filter((item) => item.run_date === todayKey);
+  const recentStart = shiftDateKey(todayKey, -6);
+  const recentQueue = data.queue.filter((item) => item.run_date >= recentStart && item.run_date <= todayKey);
+  const scopedQueue = data.queue.filter((item) => {
+    if (queueScope === "today") return item.run_date === todayKey;
+    if (queueScope === "unreached") return statusFor(item.contact) === "not_contacted" && !guardrailByContact.has(item.contact.id);
+    if (queueScope === "recent") return item.run_date >= recentStart && item.run_date <= todayKey;
+    if (queueScope === "custom") return item.run_date >= rangeStart && item.run_date <= rangeEnd;
+    return true;
+  });
+  const hiring = scopedQueue.filter((item) => item.track === "hiring_manager");
+  const executives = scopedQueue.filter((item) => item.track === "executive");
+  const actionReady = readyQueue.length;
+  const sentToday = uniqueActivityCount(activities.filter((activity) => dateKeyInTimeZone(new Date(activity.activity_at)) === todayKey), ["request_sent"]);
+  const missedRunDays = data.runs.length ? dayGap(data.run.run_date, todayKey) : null;
+  const lastRunTime = data.runs.length ? new Date(data.run.generated_at_sgt).toLocaleString("en-SG", { timeZone: "Asia/Singapore", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "Never";
   const outcomesRecorded = uniqueActivityCount(activities, ["request_sent", "connected", "message_sent", "follow_up", "reply_received", "meeting_scheduled", "referral"]);
   const pipeline = [
     { label: "Recommended", value: data.contacts.length, icon: UsersRound },
@@ -493,9 +553,12 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
     fallback: data.discoveryDuplicates.filter((item) => item.duplicate_reason === "name_employer_identity").length,
   };
   const checkedSessions = data.guardrails.length + uniqueActivityCount(activities.filter((activity) => activity.evidence_source === "browser_assisted" && !guardrailByContact.has(activity.contact_id)), ["request_sent"]);
-  const companyData = useMemo(() => { const counts = data.queue.reduce<Record<string, number>>((result, item) => { result[item.contact.employer] = (result[item.contact.employer] ?? 0) + 1; return result; }, {}); return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, value]) => ({ name, value })); }, [data.queue]);
+  const companyCounts = todayQueue.reduce<Record<string, number>>((result, item) => { result[item.contact.employer] = (result[item.contact.employer] ?? 0) + 1; return result; }, {});
+  const companyData = Object.entries(companyCounts).sort((a, b) => b[1] - a[1]).slice(0, 10).map(([name, value]) => ({ name, value }));
   const companyMax = Math.max(...companyData.map((item) => item.value), 1);
-  const visibleQueue = useMemo(() => { const normalized = query.trim().toLowerCase(); const source = track === "all" ? data.queue : track === "hiring_manager" ? hiring : executives; if (!normalized) return source; return source.filter((item) => [item.contact.full_name, item.contact.employer, item.contact.current_title, item.opening_title].filter(Boolean).some((value) => value!.toLowerCase().includes(normalized))); }, [query, track, hiring, executives, data.queue]);
+  const normalizedQuery = query.trim().toLowerCase();
+  const trackedQueue = track === "all" ? scopedQueue : track === "hiring_manager" ? hiring : executives;
+  const visibleQueue = normalizedQuery ? trackedQueue.filter((item) => [item.contact.full_name, item.contact.employer, item.contact.current_title, item.opening_title].filter(Boolean).some((value) => value!.toLowerCase().includes(normalizedQuery))) : trackedQueue;
   const selectableVisibleQueue = visibleQueue.filter((item) => statusFor(item.contact) === "not_contacted" && !guardrailByContact.has(item.contact.id));
   const allVisibleSelected = selectableVisibleQueue.length > 0 && selectableVisibleQueue.every((item) => selectedIds.has(item.id));
   const contactsById = useMemo(() => new Map(data.contacts.map((contact) => [contact.id, contact])), [data.contacts]);
@@ -552,6 +615,12 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
     if (!activeBatch) return;
     await navigator.clipboard.writeText(`Run my selected outreach batch ${activeBatch.code}`);
     setBatchCommandCopied(true); window.setTimeout(() => setBatchCommandCopied(false), 1800);
+  }
+  async function copyCatchUpCommand() {
+    const missedCopy = missedRunDays === null ? "the missing outreach period" : `${missedRunDays} missed day${missedRunDays === 1 ? "" : "s"}`;
+    await navigator.clipboard.writeText(`Run LinkedIn outreach discovery for ${missedCopy}. Find fresh contacts, deduplicate them against all prior Outreach records, and add the verified results to my dashboard. Do not send any invitations.`);
+    setActionFeedback({ type: "success", text: "Catch-up command copied · run it in Codex when ready" });
+    window.setTimeout(() => setActionFeedback(null), 2600);
   }
   function toggleTask(setter: Dispatch<SetStateAction<Set<number>>>, id: number, checked: boolean) {
     setter((current) => { const next = new Set(current); if (checked) next.add(id); else next.delete(id); return next; });
@@ -648,25 +717,36 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
     setActionFeedback({ type: "success", text: `${contact.full_name} · ${statusLabels[nextStatus]}` });
     window.setTimeout(() => setActionFeedback(null), 2200);
   }
+  const scopeLabel = queueScope === "today" ? "today" : queueScope === "unreached" ? "unreached" : queueScope === "recent" ? "from the last 7 days" : queueScope === "custom" ? `${formatShortDate(rangeStart)}–${formatShortDate(rangeEnd)}` : "across all dates";
+  const emptyTitle = normalizedQuery ? "No matching targets" : queueScope === "today" ? "No outreach generated today" : queueScope === "unreached" ? "No unreached contacts" : "No contacts in this date view";
+  const emptyCopy = normalizedQuery ? "Try a different name, company, or role." : queueScope === "today" ? "Your earlier contacts are preserved. Open Unreached to continue, or use Catch up if the automation was missed." : queueScope === "unreached" ? "Every discovered contact has already been handled." : "Choose another date view or custom range.";
   return <div className="product-shell"><header className="product-header"><div className="header-inner">
     <div className="product-brand"><span className="brand-symbol"><Send size={17} /></span><div><strong>Outreach</strong><small>RELATIONSHIP WORKSPACE</small></div></div>
     <div className="header-status"><ShieldCheck size={15} /><span>Private · verified data</span></div>
     <div className="account-menu"><span>{session.user.email}</span><Button size="sm" variant="ghost" onClick={enterDemoMode}><Sparkles />Demo</Button><PrivacyDialog onExport={exportWorkspace} onDelete={deleteWorkspace} /><PasswordDialog client={client} /><Button size="sm" variant="ghost" onClick={() => client.auth.signOut()}><LogOut />Sign out</Button></div>
   </div></header>
   <main className="workspace">
-    <section className="workspace-bar"><div className="run-context"><p className="kicker">TODAY&apos;S OUTREACH</p><div><strong>{formatDate(data.run.run_date)}</strong><span>{data.queue.length} verified contacts across {data.run.company_count} companies</span></div></div><div className="summary-pills" aria-label="Outreach summary"><span><b>{hiring.length}</b> hiring</span><span><b>{executives.length}</b> executives</span><span className="ready"><b>{actionReady}</b> ready</span><span><b>{outcomesRecorded}</b> outcomes</span></div></section>
+    <section className="workspace-bar"><div className="run-context"><p className="kicker">OUTREACH QUEUE</p><div><strong>{formatDate(todayKey)}</strong><span>{todayQueue.length ? `${todayQueue.length} verified contacts found today` : data.runs.length ? `No run today · latest was ${formatShortDate(data.run.run_date)}` : "No automation runs recorded yet"}</span></div></div><div className="summary-pills" aria-label="Outreach summary"><button type="button" onClick={() => { setView("today"); setQueueScope("today"); }}><b>{todayQueue.length}</b> found today</button><button type="button" className="ready" onClick={() => { setView("today"); setQueueScope("unreached"); }}><b>{actionReady}</b> unreached</button><span><b>{sentToday}</b> sent today</span></div></section>
     <Tabs value={view} onValueChange={(value) => setView(value as typeof view)} className="workspace-tabs">
       <TabsList className="view-tabs"><TabsTrigger value="today"><BriefcaseBusiness size={14} />Today&apos;s outreach</TabsTrigger><TabsTrigger value="pending"><Clock3 size={14} />Pending <span>{pendingCount}</span></TabsTrigger><TabsTrigger value="replies"><Mail size={14} />Replies <span>{replyTasks.length}</span></TabsTrigger><TabsTrigger value="followups"><MessageSquareText size={14} />Follow-ups <span>{followUpTasks.length}</span></TabsTrigger><TabsTrigger value="conversations"><UsersRound size={14} />Relationships <span>{conversations.length}</span></TabsTrigger><TabsTrigger value="pipeline"><BarChart3 size={14} />Pipeline</TabsTrigger><TabsTrigger value="workflow"><GitPullRequest size={14} />Workflow</TabsTrigger></TabsList>
       {actionFeedback && <div className={`action-feedback ${actionFeedback.type}`} role="status">{actionFeedback.type === "success" ? <Check size={13} /> : <CircleAlert size={13} />}{actionFeedback.text}</div>}
-      <TabsContent value="today" className="view-panel"><Card className="queue-card compact-queue"><div className="table-toolbar"><div className="track-filter" role="group" aria-label="Filter outreach track">
-        <button className={track === "all" ? "active" : ""} onClick={() => setTrack("all")}>All <span>{data.queue.length}</span></button>
+      <TabsContent value="today" className="view-panel"><Card className="queue-card compact-queue"><div className="queue-scope-bar"><div className="queue-scope-filter" role="group" aria-label="Choose outreach date view">
+        <button className={queueScope === "today" ? "active" : ""} onClick={() => setQueueScope("today")}>Today <span>{todayQueue.length}</span></button>
+        <button className={queueScope === "unreached" ? "active" : ""} onClick={() => setQueueScope("unreached")}>Unreached <span>{actionReady}</span></button>
+        <button className={queueScope === "recent" ? "active" : ""} onClick={() => setQueueScope("recent")}>Recent 7 days <span>{recentQueue.length}</span></button>
+        <button className={queueScope === "all" ? "active" : ""} onClick={() => setQueueScope("all")}>All <span>{data.queue.length}</span></button>
+        <button className={queueScope === "custom" ? "active calendar" : "calendar"} onClick={() => setQueueScope("custom")}><CalendarDays size={13} />Dates</button>
+      </div><div className={missedRunDays === 0 ? "automation-health current" : "automation-health delayed"}><span><i />Last run {lastRunTime}</span>{missedRunDays !== 0 && <button type="button" onClick={() => void copyCatchUpCommand()}><RefreshCw size={12} />Catch up</button>}</div></div>
+      {queueScope === "custom" && <div className="date-range-bar"><span>Found between</span><Input type="date" value={rangeStart} max={rangeEnd} onChange={(event) => { if (event.target.value) setRangeStart(event.target.value); }} aria-label="Outreach start date" /><span>and</span><Input type="date" value={rangeEnd} min={rangeStart} max={todayKey} onChange={(event) => { if (event.target.value) setRangeEnd(event.target.value); }} aria-label="Outreach end date" /><strong>{scopedQueue.length} contacts</strong></div>}
+      <div className="table-toolbar"><div className="track-filter" role="group" aria-label="Filter outreach track">
+        <button className={track === "all" ? "active" : ""} onClick={() => setTrack("all")}>All <span>{scopedQueue.length}</span></button>
         <button className={track === "hiring_manager" ? "active" : ""} onClick={() => setTrack("hiring_manager")}>Hiring <span>{hiring.length}</span></button>
         <button className={track === "executive" ? "active" : ""} onClick={() => setTrack("executive")}>Executives <span>{executives.length}</span></button>
       </div><div className="toolbar-actions">{selectedIds.size > 0 ? <Button className="batch-button" size="sm" onClick={prepareBatch} disabled={batchBusy || selectedIds.size > 15}>{batchBusy ? <LoaderCircle className="spin" /> : <Bot />}{batchBusy ? "Queuing…" : `Queue ${selectedIds.size} for Codex`}</Button> : activeBatch && <button className="batch-status-button" onClick={copyBatchCommand} title="Copy the Codex voice command"><Bot size={13} />{batchCommandCopied ? "Command copied" : `${activeBatch.selectedCount} ready for Codex`}</button>}<div className="queue-search"><Search size={14} /><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search name, company or role" aria-label="Search shortlist" /></div></div></div>
-      <div className="table-scroll"><Table className="outreach-table"><TableHeader><TableRow><TableHead className="select-cell"><Checkbox checked={allVisibleSelected} disabled={!selectableVisibleQueue.length} onCheckedChange={toggleAllVisible} aria-label="Select all visible ready contacts" /></TableHead><TableHead className="rank-cell">#</TableHead><TableHead>Person</TableHead><TableHead>Current role</TableHead><TableHead>Opportunity / purpose</TableHead><TableHead>Track</TableHead><TableHead>Status</TableHead><TableHead className="actions-head">Actions</TableHead></TableRow></TableHeader><TableBody>
+      <div className="table-scroll"><Table className="outreach-table live-outreach-table"><TableHeader><TableRow><TableHead className="select-cell"><Checkbox checked={allVisibleSelected} disabled={!selectableVisibleQueue.length} onCheckedChange={toggleAllVisible} aria-label="Select all visible ready contacts" /></TableHead><TableHead className="rank-cell">#</TableHead><TableHead className="found-cell">Found</TableHead><TableHead>Person</TableHead><TableHead>Current role</TableHead><TableHead>Opportunity / purpose</TableHead><TableHead>Track</TableHead><TableHead>Status</TableHead><TableHead className="actions-head">Actions</TableHead></TableRow></TableHeader><TableBody>
         {visibleQueue.map((item) => <QueueRow key={item.id} item={item} status={statusFor(item.contact)} guardrailReason={visibleGuardrailFor(item.contact)} selected={selectedIds.has(item.id)} onSelectedChange={(selected) => setItemSelected(item.id, selected)} copiedId={copiedId} expanded={expandedId === item.id} busy={busyContactId === item.contact.id} onCopy={copyMessage} onStatusChange={recordStatus} onToggle={() => setExpandedId(expandedId === item.id ? null : item.id)} />)}
-      </TableBody></Table>{!visibleQueue.length && <div className="no-results"><Search size={20} /><strong>No matching targets</strong><span>Try a different name, company, or role.</span></div>}</div>
-      <div className="table-foot"><span>{selectedIds.size ? `${selectedIds.size} selected · click Queue for Codex` : activeBatch ? `${activeBatch.selectedCount} ready · say “Run my selected outreach batch” when you want Codex to send them` : "Select any ready contacts, or select all visible, to create one Codex batch"}</span><strong>{visibleQueue.length} shown</strong></div></Card></TabsContent>
+      </TableBody></Table>{!visibleQueue.length && <div className="no-results"><Search size={20} /><strong>{emptyTitle}</strong><span>{emptyCopy}</span></div>}</div>
+      <div className="table-foot"><span>{selectedIds.size ? `${selectedIds.size} selected · click Queue for Codex` : activeBatch ? `${activeBatch.selectedCount} ready · say “Run my selected outreach batch” when you want Codex to send them` : "Select any ready contacts, or select all visible, to create one Codex batch"}</span><strong>{visibleQueue.length} shown {scopeLabel}</strong></div></Card></TabsContent>
       <TabsContent value="pending" className="view-panel"><RelationshipTaskQueue title="Stale requests ready to withdraw" kicker="14-DAY INVITATION CONTROL" emptyTitle="No stale invitations" emptyCopy={`${pendingCount} requests are pending, but none have reached 14 days.`} tasks={withdrawalTasks} contacts={contactsById} selectedIds={selectedWithdrawalIds} activeBatch={activeWithdrawalBatch} busy={batchBusy} onToggle={(id, checked) => toggleTask(setSelectedWithdrawalIds, id, checked)} onToggleAll={() => toggleAllTasks(setSelectedWithdrawalIds, withdrawalTasks, selectedWithdrawalIds)} onPrepare={() => void prepareRelationshipBatch("withdraw_invitation")} onCopyCommand={() => void copyPhase4Command(activeWithdrawalBatch)} /></TabsContent>
       <TabsContent value="replies" className="view-panel"><ConversationTaskQueue title="Inbound messages awaiting a contextual reply" kicker="INBOUND RESPONSE QUEUE" emptyTitle="No replies waiting" emptyCopy="When a connected person messages you, the generic follow-up is cancelled and the conversation appears here." tasks={replyTasks} contacts={contactsById} selectedIds={selectedReplyIds} activeBatch={activeReplyBatch} busyTaskId={busyConversationTaskId} batchBusy={batchBusy} onToggle={(id, checked) => toggleTask(setSelectedReplyIds, id, checked)} onToggleAll={() => toggleAllConversationTasks(replyTasks, selectedReplyIds, setSelectedReplyIds)} onApprove={(task, message) => void approveConversationTask(task, message)} onPrepareContext={(task, contact) => void prepareReplyContext(task, contact)} onPrepareBatch={() => void preparePhase5Batch("reply")} onCopyCommand={() => void copyPhase5Command(activeReplyBatch)} /></TabsContent>
       <TabsContent value="followups" className="view-panel"><ConversationTaskQueue title="Silent acceptances ready for a personalized follow-up" kicker="SIX-HOUR GRACE WINDOW" emptyTitle="No proactive follow-ups due" emptyCopy={waitingFollowUpCount ? `${waitingFollowUpCount} accepted connection${waitingFollowUpCount === 1 ? " is" : "s are"} still inside the six-hour response window.` : "An accepted connection with no inbound message will appear here after six hours."} tasks={followUpTasks} contacts={contactsById} selectedIds={selectedFollowUpIds} activeBatch={activeFollowUpBatch} busyTaskId={busyConversationTaskId} batchBusy={batchBusy} onToggle={(id, checked) => toggleTask(setSelectedFollowUpIds, id, checked)} onToggleAll={() => toggleAllConversationTasks(followUpTasks, selectedFollowUpIds, setSelectedFollowUpIds)} onApprove={(task, message) => void approveConversationTask(task, message)} onPrepareContext={(task, contact) => void prepareReplyContext(task, contact)} onPrepareBatch={() => void preparePhase5Batch("proactive_follow_up")} onCopyCommand={() => void copyPhase5Command(activeFollowUpBatch)} /></TabsContent>
@@ -674,7 +754,7 @@ function Dashboard({ data, session, client }: { data: DashboardData; session: Se
       <TabsContent value="pipeline" className="view-panel"><section className="pipeline-layout">
         <Card className="analytics-card funnel-card"><div className="analytics-heading"><div><p className="kicker">DATABASE-RECORDED FUNNEL</p><h2>Relationship progress</h2></div><span>All time</span></div><div className="funnel-list">{pipeline.map((item) => <div className="funnel-row" key={item.label}><span><item.icon size={14} />{item.label}</span><div><i style={{ width: `${Math.max((item.value / pipelineMax) * 100, item.value ? 4 : 0)}%` }} /></div><strong>{item.value}</strong><small>{pipeline[0].value ? `${Math.round((item.value / pipeline[0].value) * 100)}%` : "0%"}</small></div>)}</div>{!outcomesRecorded && <div className="honesty-note"><CircleAlert size={15} /><span>No outreach outcomes have been logged yet. The dashboard does not infer activity from LinkedIn.</span></div>}</Card>
         <div className="side-analytics"><Card className="analytics-card guardrail-card"><div className="analytics-heading"><div><p className="kicker">DUPLICATE GUARDRAILS</p><h2>Historical matches caught</h2></div><span>{guardrailCounts.total + discoveryDuplicateCounts.total} protected</span></div><div className="guardrail-summary"><div><strong>{guardrailCounts.already_pending}</strong><span>Already pending</span></div><div><strong>{guardrailCounts.already_connected}</strong><span>Already connected</span></div><div><strong>{guardrailCounts.previously_contacted}</strong><span>Previously contacted</span></div></div><div className="discovery-guardrail"><span><ShieldCheck size={13} />Scheduled duplicates removed</span><strong>{discoveryDuplicateCounts.total}</strong><small>{discoveryDuplicateCounts.linkedin} LinkedIn · {discoveryDuplicateCounts.fallback} name/company</small></div><p className="guardrail-rate"><ShieldCheck size={14} />{checkedSessions ? `${Math.round((guardrailCounts.total / checkedSessions) * 100)}% of browser-checked contacts were protected from a duplicate send.` : "No browser preflights recorded yet."}</p></Card>
-        <Card className="analytics-card company-card"><div className="analytics-heading"><div><p className="kicker">COMPANY MIX</p><h2>Today&apos;s shortlist</h2></div><span>{data.run.company_count} companies</span></div><div className="company-list">{companyData.map((company) => <div className="company-item" key={company.name}><div><span>{company.name}</span><strong>{company.value}</strong></div><div className="company-track"><i style={{ width: `${(company.value / companyMax) * 100}%` }} /></div></div>)}</div></Card></div>
+        <Card className="analytics-card company-card"><div className="analytics-heading"><div><p className="kicker">COMPANY MIX</p><h2>Today&apos;s shortlist</h2></div><span>{Object.keys(companyCounts).length} companies</span></div><div className="company-list">{companyData.map((company) => <div className="company-item" key={company.name}><div><span>{company.name}</span><strong>{company.value}</strong></div><div className="company-track"><i style={{ width: `${(company.value / companyMax) * 100}%` }} /></div></div>)}</div></Card></div>
       </section></TabsContent>
       <TabsContent value="workflow" className="view-panel"><Card className="queue-card workflow-card"><div className="followup-heading"><div><p className="kicker">DURABLE ORCHESTRATION</p><h2>Relationship workflow checkpoints</h2></div><span>{data.phase5WorkflowRuns.length + data.workflowRuns.length} recent</span></div><div className="workflow-list">{[...data.phase5WorkflowRuns, ...data.workflowRuns].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()).slice(0, 30).map((run) => <div className="workflow-row" key={run.id}><span className={`workflow-state state-${run.status}`}>{run.status.replaceAll("_", " ")}</span><div><strong>{run.workflow_type.replaceAll("_", " ")}</strong><small>{run.last_node.replaceAll("_", " ")}</small></div><time>{new Date(run.updated_at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</time></div>)}</div><div className="workflow-note"><RefreshCw size={14} /><span>Gmail routes acceptances and inbound-message signals. Replies always supersede proactive follow-ups; every message still requires your review.</span></div></Card></TabsContent>
     </Tabs>
