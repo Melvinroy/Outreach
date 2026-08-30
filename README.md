@@ -92,7 +92,7 @@ npm ci
 npm run dev
 ```
 
-With no environment configuration, the app opens a responsive synthetic version of the professional dashboard immediately. It uses the same workspace shell, navigation, queue, and mobile layout as the private product without connecting or sending anything. Use **Private workspace** in the top-right header to connect a Supabase project once in that browser. For a preconfigured private deployment, copy `.env.example` to `.env.local` and add only a browser-safe Supabase project URL and modern publishable key.
+With no environment configuration, the app opens a one-time private workspace connection screen. Add the Supabase project URL and browser-safe publishable key to continue to password or email-link sign-in. The responsive synthetic dashboard remains available as an explicit preview and never connects or sends anything. For a preconfigured private deployment, copy `.env.example` to `.env.local` and add only a browser-safe Supabase project URL and modern publishable key.
 
 Complete installation instructions: [docs/INSTALL.md](docs/INSTALL.md).
 

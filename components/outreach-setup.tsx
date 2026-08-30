@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { type Session, type SupabaseClient } from "@supabase/supabase-js";
-import { Check, CircleAlert, Database, Download, LoaderCircle, LockKeyhole, Settings, ShieldCheck, Trash2 } from "lucide-react";
+import { Check, CircleAlert, Database, Download, LoaderCircle, LockKeyhole, Settings, ShieldCheck, Sparkles, Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -41,10 +41,20 @@ export function getStoredCloudConfig(): StoredCloudConfig | null {
 
 export function isDemoMode() {
   if (typeof window === "undefined") return false;
-  return window.localStorage.getItem(MODE_KEY) === "demo" || new URLSearchParams(window.location.search).get("demo") === "1";
+  return new URLSearchParams(window.location.search).get("demo") === "1";
 }
-export function enterDemoMode() { window.localStorage.setItem(MODE_KEY, "demo"); window.location.reload(); }
-export function openPrivateWorkspace() { window.localStorage.setItem(MODE_KEY, "cloud"); window.location.reload(); }
+export function enterDemoMode() {
+  window.localStorage.removeItem(MODE_KEY);
+  const url = new URL(window.location.href);
+  url.searchParams.set("demo", "1");
+  window.location.assign(url.toString());
+}
+export function openPrivateWorkspace() {
+  window.localStorage.setItem(MODE_KEY, "cloud");
+  const url = new URL(window.location.href);
+  url.searchParams.delete("demo");
+  window.location.assign(url.toString());
+}
 
 function splitValues(value: string) {
   return value.split(",").map((item) => item.trim()).filter(Boolean).slice(0, 30);
@@ -67,8 +77,7 @@ export function WorkspaceConnectionDialog() {
       const response = await fetch(`${normalizedUrl}/auth/v1/settings`, { headers: { apikey: normalizedKey } });
       if (!response.ok) throw new Error("Supabase rejected this project URL or publishable key.");
       window.localStorage.setItem(CONFIG_KEY, JSON.stringify({ url: normalizedUrl, publishableKey: normalizedKey }));
-      window.localStorage.setItem(MODE_KEY, "cloud");
-      window.location.reload();
+      openPrivateWorkspace();
     } catch (connectError) {
       setError(connectError instanceof Error ? connectError.message : "The connection could not be verified.");
       setBusy(false);
@@ -87,6 +96,17 @@ export function WorkspaceConnectionDialog() {
     </Card>
     <p className="setup-security"><ShieldCheck size={14} />Secret keys, database passwords and LinkedIn credentials are rejected and must never be entered here.</p>
   </DialogContent></Dialog>;
+}
+
+export function WorkspaceConnectionGate() {
+  return <main className="gate-shell"><section className="gate-card" aria-labelledby="workspace-connection-title">
+    <div className="gate-icon"><Database size={24} /></div><p className="kicker">PRIVATE WORKSPACE</p>
+    <h1 id="workspace-connection-title">Connect Outreach once.</h1>
+    <p className="gate-copy">This browser needs your Supabase project URL and browser-safe publishable key before it can open the password sign-in. The connection stays on this device.</p>
+    <WorkspaceConnectionDialog />
+    <Button variant="outline" onClick={enterDemoMode}><Sparkles />Open synthetic demo</Button>
+    <div className="gate-security"><ShieldCheck size={15} />Passwords and private data stay protected by Supabase Auth and row-level security</div>
+  </section></main>;
 }
 
 export function ProfileSetup({ session, client, settings, onComplete }: { session: Session; client: SupabaseClient; settings: OutreachUserSettings | null; onComplete: (settings: OutreachUserSettings) => void }) {

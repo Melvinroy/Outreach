@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.14 — Private login by default
+
+- Default unconfigured browsers to the private Supabase connection gate instead of the synthetic dashboard.
+- Make demo mode an explicit URL preview so it no longer persists and overrides a saved private workspace.
+- Preserve Supabase browser sessions so returning users go directly to their authenticated dashboard until they sign out.
+
 ## 1.0.13 — Persistent outreach backlog
 
 - Kept Today as the default while adding Unreached, Recent 7 days, All, and custom date-range views.

@@ -22,10 +22,10 @@ test("first-owner claim cannot replace an existing owner", () => {
   assert.match(migration, /outreach_user_settings enable row level security/);
 });
 
-test("public UI begins with the isolated synthetic dashboard and keeps setup in the header", () => {
+test("public UI begins with private setup and keeps the synthetic dashboard isolated", () => {
   const setup = read("components/outreach-setup.tsx");
   const page = read("app/page.tsx");
-  assert.match(page, /if \(!supabase\) return <DemoExperience \/>/);
+  assert.match(page, /if \(!supabase\) return <WorkspaceConnectionGate \/>/);
   assert.doesNotMatch(page, /if \(!supabase\) return <ConfigurationError \/>/);
   assert.match(setup, /WorkspaceConnectionDialog/);
   assert.match(setup, /Private workspace/);
@@ -63,6 +63,10 @@ test("public UI begins with the isolated synthetic dashboard and keeps setup in 
   assert.match(styles, /demo-product \.track-filter button\.active/);
   assert.match(setup, /URLSearchParams\(window\.location\.search\)/);
   assert.match(setup, /enterDemoMode/);
+  assert.match(setup, /searchParams\.set\("demo", "1"\)/);
+  assert.match(setup, /searchParams\.delete\("demo"\)/);
+  assert.match(setup, /setItem\(CONFIG_KEY[\s\S]*openPrivateWorkspace\(\)/);
+  assert.doesNotMatch(setup, /localStorage\.getItem\(MODE_KEY\) === "demo"/);
   assert.match(setup, /sb_publishable_/);
   assert.match(setup, /Secret keys, database passwords and LinkedIn credentials are rejected/);
 });

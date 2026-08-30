@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   enterDemoMode, getStoredCloudConfig, isDemoMode, PrivacyDialog,
-  ProfileSetup, WorkspaceConnectionDialog, type OutreachUserSettings,
+  ProfileSetup, WorkspaceConnectionDialog, WorkspaceConnectionGate, type OutreachUserSettings,
 } from "@/components/outreach-setup";
 
 type ContactStatus = "not_contacted" | "request_sent" | "connected" | "messaged" | "replied" | "meeting_scheduled" | "referred" | "withdrawn" | "closed";
@@ -813,7 +813,7 @@ export default function Home() {
     return () => { active = false; listener.subscription.unsubscribe(); };
   }, []);
   if (demoMode) return <DemoExperience />;
-  if (!supabase) return <DemoExperience />;
+  if (!supabase) return <WorkspaceConnectionGate />;
   if (!session) return <SignIn client={supabase} />;
   if (passwordRecovery) return <RecoveryPassword client={supabase} onComplete={finishPasswordRecovery} />;
   if (authorized === null) return <LoadingScreen />;
