@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.0.18 — Mobile contact context repair
+
+- Restore the person's current role, company, and discovery date in every mobile outreach row.
+- Show the role being applied for as a clearly labeled, tappable opportunity link.
+- Reduce mobile row actions to details and discard; copy remains available inside expanded details.
+- Replace the split action-column dividers with one clean full-width row separator.
+
 ## 1.0.17 — Compact links and recoverable discard
 
 - Open LinkedIn directly from the person name and open job/activity sources from Opportunity / purpose.

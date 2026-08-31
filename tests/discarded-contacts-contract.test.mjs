@@ -14,6 +14,15 @@ test("profile and opportunity links replace redundant action buttons", () => {
   assert.doesNotMatch(page, /title="Open role or activity"/);
 });
 
+test("mobile queue keeps both the person's role and target role visible", () => {
+  assert.match(page, /className="mobile-current-role"/);
+  assert.match(page, /Current role/);
+  assert.match(page, /Person \/ roles/);
+  assert.match(page, /mobileOpportunityLabel/);
+  assert.match(page, /className="mobile-opportunity-link"/);
+  assert.match(page, /className="copy-action"/);
+});
+
 test("discarded contacts are hidden, restorable and stored durably", () => {
   assert.match(page, /TabsTrigger value="discarded"/);
   assert.match(page, /function DiscardedQueue/);
