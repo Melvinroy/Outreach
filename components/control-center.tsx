@@ -1001,7 +1001,7 @@ export function ControlCenter({
               <div className="cc-card-heading">
                 <h3>Conversation history</h3>
                 <span>
-                  {thread?.coverage === "complete"
+                  {person.connection_status === "request_sent" ? "Waiting for acceptance" : thread?.coverage === "complete"
                     ? `Verified ${stamp(thread.verified_at)}`
                     : "Verification needed"}
                 </span>

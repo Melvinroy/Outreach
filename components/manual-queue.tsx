@@ -5,7 +5,7 @@ import { confirmableInvitation } from "@/lib/manual-confirmation.mjs";
 import { useState } from "react";
 import { batchCommand, queueBlockReason, selectionSummary } from "@/lib/manual-queue.mjs";
 export type Invitation = { text:string;source:string;date?:string;token?:string;recommendation_id?:number;blocked_reason?:string;history?:{text:string;date:string;source:string}[] };
-type QueueItem = {id:string;contact_id:string;task_id?:number;name:string;text:string;status:string;removable:boolean;blocked_reason?:string};
+type QueueItem = {failure_reason?:string;preflight_evidence?:string;id:string;contact_id:string;task_id?:number;name:string;text:string;status:string;removable:boolean;blocked_reason?:string};
 type Task = {id:number;contact_id:string;task_type:string;status:string;draft_message?:string;inbound_message?:string;updated_at:string;due_at:string;context_token?:string;approval_blocked_reason?:string};
 export type ManualState = { invitations:Record<string,Invitation>;batches:{id:string;code:string;kind:string;status:string;token?:string;items:QueueItem[]}[];tasks:Task[];people?:Record<string,{can_edit:boolean;can_select:boolean;can_prepare:boolean;can_restore:boolean;blocked_reason?:string;latest_inbound?:string}> };
 type Run = (command:string,payload?:Record<string,unknown>)=>Promise<boolean>;
@@ -42,32 +42,42 @@ function Editor({label,text,token,contextToken,edit,onEdit,busy,disabled,reason,
   </div>;
 }
 export function PersonMessage({evidenceLoaded,contact,data,busy,enabled,run,edits,setEdit,history,now}:{evidenceLoaded:boolean;now:number;contact:{id:string;full_name:string;connection_status:string};data:ManualState;busy:boolean;enabled:boolean;run:Run;edits:Record<string,MessageEdit>;setEdit:(key:string,edit?:MessageEdit)=>void;history:{id:number;personalized_message?:string|null;verified_at?:string}[]}) {
+  const [notSentChecked,setNotSentChecked]=useState(false);
+  const [correctionNote,setCorrectionNote]=useState('');
   const [sentChecked,setSentChecked]=useState(false);
   const [sentRecorded,setSentRecorded]=useState(false);
   const confirmable=confirmableInvitation(contact,data.batches,evidenceLoaded);
   const invitation=data.invitations[contact.id], permissions=data.people?.[contact.id];
-  const batches=data.batches.filter(b=>(['ready','running','awaiting_confirmation'].includes(b.status)||b.items.some(i=>i.status==='failed'))&&b.items?.some(i=>i.contact_id===contact.id));
+  const batches=data.batches.filter(b=>b.items?.some(i=>i.contact_id===contact.id && ['prepared','failed'].includes(i.status)));
+  const failedInvitations=batches.filter(b=>b.kind==='invitation').flatMap(b=>b.items.filter(i=>i.contact_id===contact.id && i.status==='failed'));
   const invitationBatch=batches.find(b=>b.kind==='invitation'&&b.items.some(i=>i.contact_id===contact.id&&i.status==='prepared'));
   const invitationItem=invitationBatch?.items.find(i=>i.contact_id===contact.id);
   const tasks=data.tasks.filter(t=>t.contact_id===contact.id).sort((a,b)=>Number(b.task_type==='reply')-Number(a.task_type==='reply'));
   const stamp=(date?:string)=>date ? new Date(date).toLocaleString():'';
   const inviteHistory=<details className="cc-message-history"><summary>Invitation history</summary>{invitation?.text && <p className="cc-frozen-message">{invitation.text}</p>}{invitation?.history?.map((h,i)=><div key={i}><small>{h.source} · {stamp(h.date)}</small><p className="cc-frozen-message">{h.text}</p></div>)}{history.filter(r=>r.personalized_message?.trim()).map(r=><div key={r.id}><small>ChatGPT recommendation · {stamp(r.verified_at)}</small><p className="cc-frozen-message">{r.personalized_message}</p></div>)}{!invitation?.text && <p>No invitation message saved</p>}</details>;
   return <section className="cc-person-messages" aria-label={`Messages for ${contact.full_name}`}>
+    {evidenceLoaded && contact.connection_status==='not_contacted' && failedInvitations.length===1 && <details className="cc-message-history"><summary>Correct invitation status</summary>
+      <p>Checked LinkedIn and nothing was sent? Return this person to To connect. The original failure stays in Previous invitation checks; verify their identity before preparing again.</p>
+      <label>What did you check?<textarea rows={2} value={correctionNote} maxLength={2000} onChange={e=>setCorrectionNote(e.target.value)} placeholder="For example: no pending invitation; this attempt stopped before sending."/></label>
+      <label><input type="checkbox" checked={notSentChecked} onChange={e=>setNotSentChecked(e.target.checked)}/> I checked LinkedIn and confirmed no invitation was sent.</label>
+      <button disabled={busy || !enabled || !notSentChecked || correctionNote.trim().length<10} onClick={async()=>{if(await run('record_invitation_not_sent',{session_id:failedInvitations[0].id,confirmed_not_sent:true,note:correctionNote})){setNotSentChecked(false);setCorrectionNote('');}}}>Return to To connect</button>
+    </details>}
     {confirmable && <details className="cc-message-history"><summary>Already sent this invitation?</summary>
       <p>Check this person’s LinkedIn profile for Pending or a visible invitation confirmation. This records the existing send; it sends nothing.</p>
       <label><input type="checkbox" checked={sentChecked} disabled={busy} onChange={e=>setSentChecked(e.target.checked)}/> I checked LinkedIn and confirmed this invitation was sent.</label>
       <button disabled={busy || !enabled || !sentChecked} onClick={async()=>{if(await run('confirm_invitation_sent',{session_id:confirmable.id})){setSentChecked(false);setSentRecorded(true);}}}>Confirm sent</button>
     </details>}
+    {data.batches.some(b=>b.items.some(i=>i.contact_id===contact.id && i.status==='skipped' && i.failure_reason)) && <details className="cc-message-history"><summary>Previous invitation checks</summary>{data.batches.flatMap(b=>b.items).filter(i=>i.contact_id===contact.id && i.status==='skipped' && i.failure_reason).map(i=><div key={i.id}><p>{i.failure_reason}</p><small>{i.preflight_evidence}</small></div>)}</details>}
     {sentRecorded && <small role="status">Invitation recorded. Waiting for acceptance.</small>}
     {contact.connection_status==='not_contacted' ? <>{!invitation?.text && <p>No invitation message saved</p>}
       <Editor label="Invitation message" text={invitationItem?.text ?? invitation?.text ?? ''} token={invitation?.token} edit={edits[contact.id]} onEdit={e=>setEdit(contact.id,e)} busy={busy} disabled={!enabled || !permissions?.can_edit || (!!invitationItem && !invitationItem.removable)} limit={300} reason={permissions?.blocked_reason || (invitationItem && !invitationItem.removable ? 'This batch has started. Reconcile it before editing.' : undefined)} saveLabel={invitationItem?.removable ? 'Save queued message':'Save'} onSave={e=>run(invitationItem ? 'replace_queued':'save_invitation',{contact_id:contact.id,text:e.text,token:e.token,batch_id:invitationBatch?.id,batch_token:invitationBatch?.token,kind:'invitation'})}/>
       <small>{invitation?.text ? 'Saved · ' : ''}{invitation?.source} {invitation?.date && `· ${stamp(invitation.date)}`}</small>{inviteHistory}
-    </> : <>{tasks.length===0 && <p>{contact.connection_status==='request_sent' ? 'Invitation sent. Waiting for acceptance.' : 'No reply is due. Prepare a message when needed.'}</p>}
+    </> : <>{tasks.length===0 && contact.connection_status!=='request_sent' && <p>No reply is due. Prepare a message when needed.</p>}
       {tasks.map(task=>{const key=`${contact.id}:${task.id}`, b=batches.find(b=>b.items.some(i=>i.task_id===task.id&&i.status==='prepared')),item=b?.items.find(i=>i.task_id===task.id);const disabled=!enabled || !permissions?.can_edit || (!!item&&!item.removable);return <div key={task.id} className="cc-conversation-draft">
         <Editor label={task.task_type==='reply' ? 'Reply message':'Follow-up message'} text={item?.text ?? task.draft_message ?? ''} token={task.updated_at} contextToken={task.context_token} edit={edits[key]} onEdit={e=>setEdit(key,e)} busy={busy} disabled={disabled} limit={2000} reason={permissions?.blocked_reason || (item&&!item.removable ? 'This batch has started. Reconcile it before editing.' : undefined)} saveLabel={item ? 'Save & approve revised message':'Save'} onSave={e=>run(item ? 'replace_queued':'save_reply',{contact_id:contact.id,task_id:task.id,text:e.text,updated_at:e.token,context_token:e.context_token,batch_id:b?.id,batch_token:b?.token,kind:b?.kind})}/>
         {!item && <button disabled={busy || disabled || !!edits[key] || !!task.approval_blocked_reason || task.status!=='needs_review' || !task.draft_message || Date.parse(task.due_at)>now} onClick={()=>void run('approve_reply',{task_id:task.id,text:task.draft_message,updated_at:task.updated_at,context_token:task.context_token})}>Approve exact message &amp; queue</button>}
         {!item && <p className="cc-muted">{task.approval_blocked_reason || (edits[key] ? 'Save or cancel edits before approving.' : Date.parse(task.due_at)>now ? `Available after ${stamp(task.due_at)}.` : !task.draft_message ? 'Prepare conversation context and a draft in ChatGPT Work, then refresh.' : 'Your approval applies to this exact saved message.')}</p>}
-        {!item && ['waiting','context_required'].includes(task.status) && <Command text={`Prepare a ${task.task_type==='reply'?'reply':'follow-up'} draft for Outreach contact ${contact.id}, conversation task ${task.id}. Check the current conversation and save the draft for my review. Do not send messages.`}/>}</div>;})}{inviteHistory}</>}
+        {!item && ['waiting','context_required'].includes(task.status) && <Command text={`Prepare a ${task.task_type==='reply'?'reply':'follow-up'} draft for Outreach contact ${contact.id}, conversation task ${task.id}. Check the current conversation and save the draft for my review. Do not send messages.`}/>}</div>;})}</>}
     {batches.map(b=><section key={b.id} className="cc-person-batch"><h4>{b.status==='ready' ? 'Queued — waiting for you to trigger ChatGPT Work':'Batch history — review outcomes before continuing'}</h4>{b.items.filter(i=>i.contact_id===contact.id).map(i=><div key={i.id}><small>{deliveryOutcome(i) || i.status}</small><p className="cc-frozen-message">{i.text}</p>{i.removable && <button disabled={busy || !enabled} onClick={()=>void run('remove',{contact_id:contact.id})}>Remove unsent item</button>}{['prepared','failed'].includes(i.status)&&!i.removable&&<p>Needs reconciliation. This item cannot safely be edited or repeated.</p>}</div>)}<small>Batch {b.code} · {b.items.filter(i=>i.status==='prepared').length} remaining of {b.items.length} recipients. This command addresses the entire batch.</small>{queueReceipt(b).canCopy && <Command text={batchCommand(b)}/>}</section>)}
   </section>;
 }

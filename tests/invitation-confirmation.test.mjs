@@ -25,3 +25,17 @@ test('manual confirmation targets exactly one prepared invitation and cannot cle
  assert.equal(confirmableInvitation(c,[{kind:'invitation',items:[pending,{...pending,id:'other'}]}],true),null);
  for(const status of ['failed','running','uncertain','awaiting_confirmation']) assert.equal(confirmableInvitation(c,[...b,{kind:'reply',items:[{...item,id:'hold',status}]}],true),null);
 });
+import {readFileSync} from 'node:fs';
+test('corrected unsent attempt returns to To connect and retains original identity evidence',()=>{
+ const s={...snapshot,contacts:[{id:'p',connection_status:'not_contacted'}]};
+ const corrected={...item,status:'skipped',skip_reason:'owner_verified_not_sent',failure_reason:'Pre-send identity mismatch: previous employer differed'};
+ const m={...manual,batches:[{kind:'invitation',items:[corrected]}]};
+ const p=projectRelationships(s,{manual:m,evidence:[corrected]});
+ assert.deepEqual(p.groups.to_connect,['p']);assert.deepEqual(p.groups.identity_blocked,[]);assert.deepEqual(p.groups.uncertain_delivery,[]);assert.match(corrected.failure_reason,/identity mismatch/);
+});
+test('sent invitations are not duplicated in the right-hand review',()=>{
+ const ui=readFileSync(new URL('../components/manual-queue.tsx',import.meta.url),'utf8');
+ assert.ok(!ui.includes('})}{inviteHistory}</>}'));
+ assert.match(ui,/Previous invitation checks/);assert.match(ui,/Correct invitation status/);
+ assert.match(ui,/i.contact_id===contact.id && \['prepared','failed'\].includes\(i.status\)/);
+});
