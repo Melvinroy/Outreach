@@ -46,7 +46,7 @@ import {
 } from "@/lib/control-center.mjs";
 import { workspaceCapabilities, canRunWorkspaceCommand } from "@/lib/workspace-capabilities.mjs";
 import { findSavedQueue, saveConnectionQueue } from "@/lib/queue-save.mjs";
-import { opportunityDetails, conversationEvidence, readEvidenceRows, sourceContext } from "@/lib/person-evidence.mjs";
+import { opportunityDetails, conversationEvidence, readEvidenceRows, readDeliveryEvidence, sourceContext } from "@/lib/person-evidence.mjs";
 import { projectRelationships } from "@/lib/relationship-projection.mjs";
 import { invitationMessage, manualPersonStatus } from "@/lib/manual-queue.mjs";
 import { ManualQueue, PersonMessage, type MessageEdit, type ManualState } from "./manual-queue";
@@ -315,6 +315,7 @@ export function ControlCenter({
   const [recordedMessages, setRecordedMessages] = useState<Message[]>([]);
   const [deliveryEvidence, setDeliveryEvidence] = useState<{id:string;contact_id:string;status:string;confirmation_signal?:string;failure_reason?:string}[]>([]);
   const [evidenceLoaded, setEvidenceLoaded] = useState(demo);
+  const [evidenceRevision, setEvidenceRevision] = useState(0);
   const [historyError, setHistoryError] = useState('');
   const [manual, setManual] = useState<ManualState>({ invitations: {}, batches: [], tasks: [] });
   const queueWriteLock = useRef(false);
@@ -399,27 +400,28 @@ export function ControlCenter({
     let sequence = 0;
     const read = async () => {
       const request=++sequence;
-      const fields='id,contact_id,status,message_snapshot,confirmation_signal,completed_at,failure_reason';
       const results=await Promise.allSettled([
-        readEvidenceRows(client,'outreach_assist_sessions',fields),
-        readEvidenceRows(client,'outreach_phase5_sessions',fields),
+        readDeliveryEvidence(client),
         readEvidenceRows(client,'outreach_conversation_events','id,contact_id,event_type,message_body,message_excerpt,observed_at,evidence_source','event_type','inbound_message'),
         readEvidenceRows(client,'outreach_recommendations','id,run_id,contact_id,track,priority,fit_assessment,genuine_gap,opening_title,active_job_url,hiring_post_url,personalized_message,verified_at'),
         readEvidenceRows(client,'outreach_runs','id,raw_report_text'),
       ]);
       if (!active || request!==sequence) return;
-      if (results.slice(0,3).every(r=>r.status==='fulfilled')) {
-        const rows=results.slice(0,3).map(r=>r.status==='fulfilled'?r.value:[]);
-        setDeliveryEvidence([...rows[0],...rows[1]]);setEvidenceLoaded(true);setRecordedMessages(conversationEvidence([],rows[0],rows[1],rows[2]));setHistoryError('');
-      } else {setEvidenceLoaded(false);setHistoryError('Some recorded history could not be loaded. Refresh to try again.');}
-      if(results[3].status==='fulfilled') setFreshDiscovery(sourceContext(results[3].value,results[4].status==='fulfilled'?results[4].value:[]) as Discovery[]);
+      const delivery=results[0], incoming=results[1];
+      if (delivery.status==='fulfilled') {
+        const {invitations,replies}=delivery.value;
+        setDeliveryEvidence([...invitations,...replies]);setEvidenceLoaded(true);
+        setRecordedMessages(conversationEvidence([],invitations,replies,incoming.status==='fulfilled'?incoming.value:[]));
+        setHistoryError(incoming.status==='fulfilled'?'':'Incoming history could not be loaded. Sent confirmations remain available.');
+      } else {setEvidenceLoaded(false);setHistoryError('Delivery confirmations could not be loaded. Refresh before correcting a send.');}
+      if(results[2].status==='fulfilled') setFreshDiscovery(sourceContext(results[2].value,results[3].status==='fulfilled'?results[3].value:[]) as Discovery[]);
     };
     void read();
     const refresh=()=>void read();
     const timer=window.setInterval(refresh,60000);
     window.addEventListener('focus',refresh);
     return ()=>{active=false;clearInterval(timer);window.removeEventListener('focus',refresh);};
-  },[client,demo]);
+  },[client,demo,evidenceRevision]);
   useEffect(() => {
     let alive = true;
     const refresh = () =>
@@ -473,9 +475,12 @@ export function ControlCenter({
     queueWriteLock.current=true;
     setBusy(true); setError(''); setFeedback('');
     try {
-      const result = await client.rpc('manual_outreach', { p_command: command, p_payload: payload });
+      const result = command === 'confirm_invitation_sent'
+        ? await client.rpc('confirm_browser_assisted_outreach', {p_session_id:payload.session_id,p_confirmation_signal:'linkedin_invitation_sent_visible'})
+        : await client.rpc('manual_outreach', { p_command: command, p_payload: payload });
       if (result.error) throw result.error;
-      setFeedback(['exclude_people','do_not_contact','restore_exclusions'].includes(command) ? '' : result.data?.message || (command === 'queue' || command === 'approve_reply' ? 'Queued — waiting for you to trigger ChatGPT Work. Nothing has been sent.' : 'Queue updated.'));
+      setEvidenceRevision(value=>value+1);
+      setFeedback(['exclude_people','do_not_contact','restore_exclusions','confirm_invitation_sent'].includes(command) ? '' : result.data?.message || (command === 'queue' || command === 'approve_reply' ? 'Queued — waiting for you to trigger ChatGPT Work. Nothing has been sent.' : 'Queue updated.'));
       try { await load(); }
       catch { setManualRefreshPending(true);setError('Saved, but the updated page could not be loaded. Refresh the saved details before making another change.');return false; }
       return true;
@@ -1068,7 +1073,7 @@ export function ControlCenter({
             </section>
           )}
 
-          {capabilities.queue && <PersonMessage now={now} contact={person} data={{...manual,batches:relationships?.batches ?? manual.batches}} busy={busy} enabled={capabilities.queue} run={manualRun} edits={messageEdits} setEdit={changeMessageEdit} history={selectedRecommendations} />}
+          {capabilities.queue && <PersonMessage key={person.id} evidenceLoaded={evidenceLoaded} now={now} contact={person} data={{...manual,batches:relationships?.batches ?? manual.batches}} busy={busy} enabled={capabilities.queue} run={manualRun} edits={messageEdits} setEdit={changeMessageEdit} history={selectedRecommendations} />}
           <section className="cc-draft-area" hidden={capabilities.queue}>
             <div className="cc-card-heading cc-reply-heading">
               <h3>
