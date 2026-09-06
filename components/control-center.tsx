@@ -325,7 +325,6 @@ export function ControlCenter({
   const readOnly = !capabilities.management;
   const busy = commandBusy || batchBusy || !!queueRecovery || manualRefreshPending;
   const [messageEdits, setMessageEdits] = useState<Record<string, MessageEdit>>({});
-  const [undoExclusions, setUndoExclusions] = useState<string[]>([]);
   const changeMessageEdit = (key: string, edit?: MessageEdit) => setMessageEdits(current => {
     const next = {...current}; if (edit) next[key] = edit; else delete next[key]; return next;
   });
@@ -476,7 +475,7 @@ export function ControlCenter({
     try {
       const result = await client.rpc('manual_outreach', { p_command: command, p_payload: payload });
       if (result.error) throw result.error;
-      setFeedback(result.data?.message || (command === 'queue' || command === 'approve_reply' ? 'Queued — waiting for you to trigger ChatGPT Work. Nothing has been sent.' : 'Queue updated.'));
+      setFeedback(['exclude_people','do_not_contact','restore_exclusions'].includes(command) ? '' : result.data?.message || (command === 'queue' || command === 'approve_reply' ? 'Queued — waiting for you to trigger ChatGPT Work. Nothing has been sent.' : 'Queue updated.'));
       try { await load(); }
       catch { setManualRefreshPending(true);setError('Saved, but the updated page could not be loaded. Refresh the saved details before making another change.');return false; }
       return true;
@@ -486,7 +485,6 @@ export function ControlCenter({
   const excludePeople = async (ids: string[]) => {
     if (await manualRun('exclude_people', {contact_ids: ids})) {
       setBatchSelection(current => current.filter(id => !ids.includes(id)));
-      setUndoExclusions(ids);
     }
   };
   const execute = async (cmd: string, p: Record<string, unknown>) => {
@@ -1347,6 +1345,7 @@ export function ControlCenter({
             )}
             {view === "people" && (
               <section className="cc-list-section">
+                {filter === "do_not_contact" && <p className="cc-muted">Excluded contacts and delivery holds. Open a person to review; uncertain sends must be checked before retrying.</p>}
                 <button className="cc-attention-summary" onClick={()=>go("people","attention")}><TriangleAlert size={15}/> Needs attention · {relationships?.groups.attention.length ?? 0}</button>
                 <div className="cc-work-status" role="group" aria-label="Outreach progress" hidden={capabilities.queue}>
                   <button onClick={() => go("people", capabilities.queue ? "to_connect" : "review")}>
@@ -1482,8 +1481,7 @@ export function ControlCenter({
                   </span>
 
                 </div>
-                {capabilities.queue && <ManualQueue saveQueue={saveQueue} savingQueue={savingQueue} recovery={queueRecovery} retryRefresh={retryQueueRefresh} refreshing={commandBusy && !savingQueue} data={{...manual,batches:relationships?.batches ?? manual.batches}} onPerson={id=>{go("people","all");setSelected(id);}} contacts={snapshot.contacts} selection={batchSelection} clear={ids => setBatchSelection(current => current.filter(id => !ids.includes(id)))} busy={busy} enabled={capabilities.queue} run={manualRun} dirty={Object.keys(messageEdits).filter(key => !key.includes(':') && messageEdits[key].text !== manual.invitations[key]?.text)} exclude={excludePeople} />}
-                {undoExclusions.length > 0 && <div className="cc-feedback" role="status">Do not contact saved. <button disabled={busy} onClick={async () => {if (await manualRun('restore_exclusions', {contact_ids: undoExclusions})) setUndoExclusions([]);}}>Undo</button></div>}
+                {capabilities.queue && <ManualQueue saveQueue={saveQueue} savingQueue={savingQueue} recovery={queueRecovery} retryRefresh={retryQueueRefresh} refreshing={commandBusy && !savingQueue} data={{...manual,batches:relationships?.batches ?? manual.batches}} contacts={snapshot.contacts} selection={batchSelection} clear={ids => setBatchSelection(current => current.filter(id => !ids.includes(id)))} busy={busy} enabled={capabilities.queue} run={manualRun} dirty={Object.keys(messageEdits).filter(key => !key.includes(':') && messageEdits[key].text !== manual.invitations[key]?.text)} exclude={excludePeople} />}
 
                 {!capabilities.queue && batchSelection.length > 0 && (
                   <div
@@ -1706,5 +1704,4 @@ export function ControlCenter({
     </div>
   );
 }
-
 

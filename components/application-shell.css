@@ -227,3 +227,8 @@ button.sidebar-brand { background: transparent; border: 0; color: inherit; text-
  .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-outside { top:calc((100% - var(--node-height))*.64); }
  .relationship-return-label { top:79%; left:23%; }
 }
+
+/* A compact welcome surface; operational details stay inside People rows. */
+.cc-shell.outreach-app .ov-hero.ov-welcome { background:#f1f6f9; border:1px solid #dfe8ee; border-left:3px solid #243f52; border-radius:7px; padding:10px 12px; align-items:center; }
+.cc-shell .cc-queue-inline-status { display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:12px; }
+@media(min-width:1024px) and (max-height:700px) { .cc-shell.outreach-app .ov-hero.ov-welcome { padding:6px 10px; } }

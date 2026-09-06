@@ -17,7 +17,7 @@ export function OverviewDashboard({snapshot, activities, demo, onSelect, onPerso
     {label:'Conversion so far',value:percentage,detail:'Recorded connections → replies',icon:Target,color:'rose'},
   ];
   return <div className="ov-dashboard">
-    <section className="ov-hero">
+    <section className="ov-hero ov-welcome">
       <div><h1>Turn conversations into opportunities</h1><p className="ov-intro">Track your LinkedIn outreach — from first connection to real opportunities.</p></div>
       {toolbar}
     </section>

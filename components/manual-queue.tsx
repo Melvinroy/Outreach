@@ -9,31 +9,25 @@ type Task = {id:number;contact_id:string;task_type:string;status:string;draft_me
 export type ManualState = { invitations:Record<string,Invitation>;batches:{id:string;code:string;kind:string;status:string;token?:string;items:QueueItem[]}[];tasks:Task[];people?:Record<string,{can_edit:boolean;can_select:boolean;can_prepare:boolean;can_restore:boolean;blocked_reason?:string;latest_inbound?:string}> };
 type Run = (command:string,payload?:Record<string,unknown>)=>Promise<boolean>;
 export type MessageEdit = {text:string;token?:string;context_token?:string};
-type Props = {onPerson:(id:string)=>void;saveQueue:(items:{contact_id:string;text:string;token?:string}[])=>Promise<boolean>;savingQueue:boolean;recovery:{confirmed?:{batch_id:string;batch_code:string;selected_count:number}}|null;retryRefresh:()=>Promise<void>;refreshing:boolean;data:ManualState;contacts:{id:string;full_name:string;connection_status:string}[];selection:string[];clear:(ids:string[])=>void;busy:boolean;enabled:boolean;run:Run;dirty:string[];exclude:(ids:string[])=>Promise<void>};
-export function ManualQueue({data,contacts,selection,clear,busy,enabled,run,dirty,exclude,saveQueue,savingQueue,recovery,retryRefresh,refreshing,onPerson}:Props) {
+type Props = {saveQueue:(items:{contact_id:string;text:string;token?:string}[])=>Promise<boolean>;savingQueue:boolean;recovery:{confirmed?:{batch_id:string;batch_code:string;selected_count:number}}|null;retryRefresh:()=>Promise<void>;refreshing:boolean;data:ManualState;contacts:{id:string;full_name:string;connection_status:string}[];selection:string[];clear:(ids:string[])=>void;busy:boolean;enabled:boolean;run:Run;dirty:string[];exclude:(ids:string[])=>Promise<void>};
+export function ManualQueue({data,contacts,selection,clear,busy,enabled,run,dirty,exclude,saveQueue,savingQueue,recovery,retryRefresh,refreshing}:Props) {
   const summary=selectionSummary(contacts,selection);
   const missingNames=contacts.filter(c=>summary.invitations.includes(c.id)&&!data.invitations[c.id]?.text?.trim()).map(c=>c.full_name);
   const blocked=summary.invitations.some((id:string)=>dirty.includes(id)) ? 'Save or cancel your invitation edits before queuing.' : queueBlockReason(summary.invitations,data.invitations,enabled);
   const readyReplies=summary.replies.filter((id:string)=>data.people?.[id]?.can_prepare);
   const replyReason=!enabled ? 'Reply preparation is unavailable.' : !readyReplies.length ? (summary.replies.length ? 'These conversations are already queued or need reconciliation. Open the person for details.' : 'Select connected people who have a next message to prepare.') : '';
-  return <section className="cc-manual-queue" aria-label="Selected people actions"><div className="cc-selection-bar cc-three-actions">
+  return <section className="cc-manual-queue" aria-label="Selected people actions">{selection.length > 0 && <div className="cc-selection-bar cc-three-actions">
     <strong>{summary.label}</strong>
     <div><button aria-describedby="queue-reason" disabled={busy || !!blocked} onClick={async()=>{if(await saveQueue(summary.invitations.map((id:string)=>({contact_id:id,text:data.invitations[id].text,token:data.invitations[id].token})))) clear(summary.invitations);}}>{savingQueue ? 'Saving queue…' : `Save connection queue (${summary.invitations.length})`}</button><small id="queue-reason">{blocked || 'Saves this selection. Nothing is sent.'}{missingNames.length>0 && ` Missing: ${missingNames.slice(0,3).join(', ')}${missingNames.length>3 ? ` and ${missingNames.length-3} more`:''}.`}</small></div>
     <div><button aria-describedby="reply-reason" disabled={busy || !!replyReason} onClick={async()=>{if(await run('prepare_replies',{contact_ids:readyReplies})) clear(readyReplies);}}>Prepare replies ({readyReplies.length})</button><small id="reply-reason">{replyReason || 'Prepare only these people. Review their messages inside each row.'}</small></div>
     <div><button disabled={busy || !enabled || !selection.length} onClick={()=>void exclude(selection)}>Do not contact ({selection.length})</button><small>{selection.length ? 'Exclude selected people from outreach.' : 'Select people to exclude.'}</small></div>
-  </div>
-    {recovery && <div className="cc-queue-receipt" role="status">
+  </div>}
+    {recovery && <div className="cc-queue-inline-status" role="status">
       <strong>{recovery.confirmed ? `Queue saved · ${recovery.confirmed.selected_count} people · Batch ${recovery.confirmed.batch_code}` : 'Checking save outcome'}</strong>
       <span>{recovery.confirmed ? 'Nothing sent. Refresh to show current queue details.' : 'Save confirmation was interrupted. Another save is paused until confirmed.'}</span>
       <button disabled={refreshing} onClick={()=>void retryRefresh()}>{refreshing ? 'Refreshing…' : 'Check saved queue'}</button>
     </div>}
-    {!recovery && data.batches.filter(b=>['ready','running'].includes(b.status) || b.items.some(i=>i.status==='failed')).map(b=>{
-      const receipt=queueReceipt(b);
-      return <div className="cc-queue-receipt" key={b.id} role="status"><strong>{receipt.label} · {receipt.count} {receipt.count===1 ? 'person':'people'} · Batch {receipt.code}</strong>
-        {receipt.canCopy ? <><span>{receipt.nothingSent ? 'Nothing sent. ' : 'Review recorded progress. '}Command runs the entire batch.</span><Command text={batchCommand(b)}/></> : <span>Open a person’s row to review progress or reconcile. Do not start another batch.</span>}
-        {receipt.affected.map((person:{id:string;name:string;outcome:string})=><button key={person.id} onClick={()=>onPerson(person.id)}>{person.name} · {person.outcome}</button>)}
-      </div>;
-    })}
+
   </section>;
 }
 function Command({text}:{text:string}) {
