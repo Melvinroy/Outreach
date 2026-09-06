@@ -18,7 +18,7 @@ test('manual queue states take precedence over obsolete automatic-workflow proje
  assert.equal(manualPersonStatus(c,d),'Invitation ready');
  d.batches=[{status:'ready',items:[{contact_id:'one',status:'prepared'}]}];
  assert.equal(manualPersonStatus(c,d),'Queued');
- d.batches[0].status='running';assert.equal(manualPersonStatus(c,d),'Needs reconciliation');
+ d.batches[0].status='running';assert.equal(manualPersonStatus(c,d),'Running');
  d.batches[0].items[0].status='failed';assert.equal(manualPersonStatus(c,d),'Needs reconciliation');
  c.do_not_contact=true;assert.equal(manualPersonStatus(c,d),'Do not contact');
 });

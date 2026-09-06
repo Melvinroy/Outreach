@@ -10,7 +10,7 @@ Run the exact frozen batch selected in the Outreach dashboard. Treat queueing as
 ## Resolve the batch
 
 1. Find the configured Outreach Supabase project.
-2. Resolve the supplied eight-character batch code. If no code is supplied, load the authenticated/allowlisted user's latest active batch.
+2. Resolve the supplied eight-character batch code. If no code is supplied, load the authenticated/allowlisted user's running queue, or otherwise the oldest eligible saved queue.
 3. Load the batch and its sessions in `sequence_no` order from `outreach_assist_batches` and `outreach_assist_sessions`, including each session's status and guardrail outcome.
 4. If more than one user's batch could match, stop and ask for the displayed batch code. Never guess an owner.
 5. Show the user a compact review containing the exact recipients, employers, and frozen messages.
@@ -27,7 +27,11 @@ Run the exact frozen batch selected in the Outreach dashboard. Treat queueing as
 
 The user's direct voice/text instruction to run the selected outreach batch is the single authorization for every exact recipient and frozen message in that batch. Do not ask for approval per contact and do not add another routine confirmation after this command.
 
-Before acting, resolve the latest active batch and ensure its owner, recipient count, profiles, and frozen messages match the queued data. Ask the user only if the batch is ambiguous, the requested batch cannot be resolved, or a recipient/message materially differs from the frozen record.
+Before acting, resolve the running queue or oldest eligible saved queue and ensure its owner, recipient count, profiles, and frozen messages match the queued data. Ask the user only if the batch is ambiguous, the requested batch cannot be resolved, or a recipient/message materially differs from the frozen record.
+
+## Claim the eligible queue
+
+Before opening LinkedIn or clicking any send control, call `start_browser_assisted_batch` for the resolved batch in the authenticated owner context. The database enforces FIFO, one running queue, and unresolved-delivery holds. If rejected, stop and show the recorded reason. Never skip ahead to another queue or start the next queue automatically. Superseded batch codes are invalid; use the current code. A running queue may be resumed only through the same check.
 
 ## Execute sequentially
 

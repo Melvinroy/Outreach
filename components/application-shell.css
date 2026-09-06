@@ -232,3 +232,14 @@ button.sidebar-brand { background: transparent; border: 0; color: inherit; text-
 .cc-shell.outreach-app .ov-hero.ov-welcome { background:#f1f6f9; border:1px solid #dfe8ee; border-left:3px solid #243f52; border-radius:7px; padding:10px 12px; align-items:center; }
 .cc-shell .cc-queue-inline-status { display:flex; align-items:center; flex-wrap:wrap; gap:8px; font-size:12px; }
 @media(min-width:1024px) and (max-height:700px) { .cc-shell.outreach-app .ov-hero.ov-welcome { padding:6px 10px; } }
+/* Small queue disclosure; no full-width operational banner. */
+.cc-shell .cc-queues { position:relative; margin-left:auto; width:max-content; max-width:100%; font-size:12px; }
+.cc-shell .cc-queues>summary { display:flex;align-items:center;gap:6px;min-height:36px;cursor:pointer;padding:4px 8px;border:1px solid #dce5e9;border-radius:6px; }
+.cc-shell .cc-queue-popover { position:absolute;right:0;top:100%;z-index:30;width:340px;max-width:calc(100vw - 40px);max-height:65vh;overflow:auto;padding:12px;background:white;border:1px solid #dce5e9;border-radius:8px;box-shadow:0 8px 24px #142c3c18; }
+.cc-shell .cc-queue-popover section { display:grid;gap:4px;padding:10px 0;border-bottom:1px solid #e5ecef; }
+.cc-shell .cc-queue-popover p { margin:2px 0; }
+.cc-shell .cc-queue-popover small { display:block; }
+.cc-shell .cc-queue-popover details button { display:block;width:100%;text-align:left; }
+.cc-shell .cc-queue-popover code { display:block;overflow-wrap:anywhere; }
+.cc-shell .cc-queues summary:focus-visible { outline:2px solid #27716a;outline-offset:2px; }
+@media(max-width:600px){.cc-shell .cc-queues>summary,.cc-shell .cc-queue-popover button,.cc-shell .cc-queue-popover summary{min-height:44px;}}

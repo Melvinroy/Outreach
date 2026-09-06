@@ -319,9 +319,11 @@ export function ControlCenter({
   const [historyError, setHistoryError] = useState('');
   const [manual, setManual] = useState<ManualState>({ invitations: {}, batches: [], tasks: [] });
   const queueWriteLock = useRef(false);
+  const recoveryOwner=useRef<string|undefined>(undefined);
   const loadSequence = useRef(0);
   const [savingQueue, setSavingQueue] = useState(false);
-  const [queueRecovery, setQueueRecovery] = useState<{items:{contact_id:string;text:string;token?:string}[];beforeIds:string[];confirmed?:{batch_id:string;batch_code:string;selected_count:number}} | null>(null);
+  const [queueStale,setQueueStale]=useState(true);
+  const [queueRecovery, setQueueRecovery] = useState<{notSaved?:boolean;requestId?:string;items:{contact_id:string;text:string;token?:string}[];beforeIds:string[];confirmed?:{batch_id:string;batch_code:string;selected_count:number}} | null>(null);
   const capabilities = workspaceCapabilities(snapshot, demo);
   const readOnly = !capabilities.management;
   const busy = commandBusy || batchBusy || !!queueRecovery || manualRefreshPending;
@@ -344,6 +346,7 @@ export function ControlCenter({
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [batchSelection, setBatchSelection] = useState<string[]>([]);
+
   const [rowOrder, setRowOrder] = useState<string[]>([]);
   const discoveryBuckets = useMemo(
     () => discoveryByContact(freshDiscovery ?? discovery),
@@ -375,6 +378,12 @@ export function ControlCenter({
       manualSnapshot = queued.data as ManualState;
       if (requestSequence === loadSequence.current) {
         setManual(manualSnapshot);
+        if(manualSnapshot.queue_owner && recoveryOwner.current!==manualSnapshot.queue_owner) {
+          recoveryOwner.current=manualSnapshot.queue_owner;
+          const saved=sessionStorage.getItem(`outreach-queue-save:${manualSnapshot.queue_owner}`);
+          if(saved) {const pending=JSON.parse(saved);setQueueRecovery(pending);setBatchSelection(pending.items.map((item:{contact_id:string})=>item.contact_id));}
+          else setQueueRecovery(null);
+        }
         const savedState=manualSnapshot;
         setMessageEdits(current => {
           const next={...current};let changed=false;
@@ -386,6 +395,20 @@ export function ControlCenter({
           return changed?next:current;
         });
       }
+    }
+    const evidenceResults=await Promise.allSettled([
+      readDeliveryEvidence(client),
+      readEvidenceRows(client,'outreach_conversation_events','id,contact_id,event_type,message_body,message_excerpt,observed_at,evidence_source','event_type','inbound_message'),
+    ]);
+    if(requestSequence===loadSequence.current) {
+      const delivery=evidenceResults[0],incoming=evidenceResults[1];
+      setQueueStale(delivery.status!=='fulfilled');
+      if(delivery.status==='fulfilled') {
+        const {invitations,replies}=delivery.value;
+        setDeliveryEvidence([...invitations,...replies]);setEvidenceLoaded(true);
+        setRecordedMessages(conversationEvidence([],invitations,replies,incoming.status==='fulfilled'?incoming.value:[]));
+        setHistoryError(incoming.status==='fulfilled'?'':'Incoming history could not be loaded. Sent confirmations remain available.');
+      } else {setEvidenceLoaded(false);setHistoryError('Delivery confirmations could not be loaded. Refresh before correcting a send.');}
     }
     if (requestSequence === loadSequence.current) {
       setSnapshot({ ...data, capabilities: capabilityResult.error ? undefined : capabilityResult.data } as Snapshot);
@@ -401,20 +424,11 @@ export function ControlCenter({
     const read = async () => {
       const request=++sequence;
       const results=await Promise.allSettled([
-        readDeliveryEvidence(client),
-        readEvidenceRows(client,'outreach_conversation_events','id,contact_id,event_type,message_body,message_excerpt,observed_at,evidence_source','event_type','inbound_message'),
         readEvidenceRows(client,'outreach_recommendations','id,run_id,contact_id,track,priority,fit_assessment,genuine_gap,opening_title,active_job_url,hiring_post_url,personalized_message,verified_at'),
         readEvidenceRows(client,'outreach_runs','id,raw_report_text'),
       ]);
       if (!active || request!==sequence) return;
-      const delivery=results[0], incoming=results[1];
-      if (delivery.status==='fulfilled') {
-        const {invitations,replies}=delivery.value;
-        setDeliveryEvidence([...invitations,...replies]);setEvidenceLoaded(true);
-        setRecordedMessages(conversationEvidence([],invitations,replies,incoming.status==='fulfilled'?incoming.value:[]));
-        setHistoryError(incoming.status==='fulfilled'?'':'Incoming history could not be loaded. Sent confirmations remain available.');
-      } else {setEvidenceLoaded(false);setHistoryError('Delivery confirmations could not be loaded. Refresh before correcting a send.');}
-      if(results[2].status==='fulfilled') setFreshDiscovery(sourceContext(results[2].value,results[3].status==='fulfilled'?results[3].value:[]) as Discovery[]);
+      if(results[0].status==='fulfilled') setFreshDiscovery(sourceContext(results[0].value,results[1].status==='fulfilled'?results[1].value:[]) as Discovery[]);
     };
     void read();
     const refresh=()=>void read();
@@ -426,10 +440,10 @@ export function ControlCenter({
     let alive = true;
     const refresh = () =>
       void load().catch((e) => {
-        if (alive) setError(e.message);
+        if (alive) {setError(e.message);setQueueStale(true);}
       });
     refresh();
-    const timer = window.setInterval(refresh, 15000);
+    const timer = window.setInterval(()=>{if(document.visibilityState==='visible')refresh();}, 15000);
     window.addEventListener("focus", refresh);
     return () => {
       alive = false;
@@ -442,31 +456,38 @@ export function ControlCenter({
     if (!state) throw new Error('Queue snapshot unavailable');
     return state;
   };
-  const saveQueue = async (items: {contact_id:string;text:string;token?:string}[]) => {
-    if (!client || busy || queueWriteLock.current) return false;
+  const saveQueue = async (items: {contact_id:string;text:string;token?:string}[], retryRequestId?:string) => {
+    if (!client || commandBusy || batchBusy || (!retryRequestId && busy) || queueWriteLock.current) return false;
     queueWriteLock.current = true;
     setSavingQueue(true); setBusy(true); setError(''); setFeedback('');
     const beforeIds = manual.batches.map(b => b.id);
+    const requestId=retryRequestId||crypto.randomUUID();
     try {
+      sessionStorage.setItem(`outreach-queue-save:${manual.queue_owner}`,JSON.stringify({requestId,items,beforeIds}));
       const outcome = await saveConnectionQueue({
-        rpc: (selectedItems: typeof items) => client.rpc('manual_outreach', {p_command:'queue',p_payload:{items:selectedItems}}),
+        rpc: (selectedItems: typeof items) => client.rpc('manual_outreach', {p_command:'queue',p_payload:{items:selectedItems,request_id:requestId,allocation_token:manual.queue_state?.token}}),
+        recoverByRequest: async()=>{const r=await client.rpc('manual_outreach',{p_command:'queue_receipt',p_payload:{request_id:requestId}});if(r.error)throw r.error;return r.data?.receipt;},
         refresh: refreshQueue, items, beforeIds,
       });
-      if (outcome.uncertain || outcome.refreshFailed) setQueueRecovery({items,beforeIds,confirmed:outcome.ok ? outcome.data : undefined});
+      if (outcome.uncertain || outcome.refreshFailed) setQueueRecovery({requestId,items,beforeIds,confirmed:outcome.ok ? outcome.data : undefined});
+      if(!outcome.uncertain && !outcome.refreshFailed) {sessionStorage.removeItem(`outreach-queue-save:${manual.queue_owner}`);setQueueRecovery(null);}
+      if(outcome.allocationChanged) await refreshQueue();
       if (!outcome.ok) setError(outcome.error || 'Queue could not be saved.');
       return outcome.ok;
-    } finally { queueWriteLock.current = false; setSavingQueue(false); setBusy(false); }
+    } catch(e) {setQueueRecovery({requestId,items,beforeIds});setError(e instanceof Error?e.message:'Save outcome is not confirmed.');return false;} finally { queueWriteLock.current = false; setSavingQueue(false); setBusy(false); }
   };
   const retryQueueRefresh = async () => {
     if (!queueRecovery || queueWriteLock.current) return;
     queueWriteLock.current = true; setBusy(true);
     try {
       const state = await refreshQueue();
-      const saved = queueRecovery.confirmed || findSavedQueue(state.batches, queueRecovery.items, queueRecovery.beforeIds);
+      const recovered=queueRecovery.requestId && client ? await client.rpc('manual_outreach',{p_command:'queue_receipt',p_payload:{request_id:queueRecovery.requestId}}):null;
+      if(recovered?.error) throw recovered.error;
+      const saved = queueRecovery.confirmed || recovered?.data?.receipt || (!queueRecovery.requestId && findSavedQueue(state.batches, queueRecovery.items, queueRecovery.beforeIds));
       if (saved) {
         setBatchSelection(current => current.filter(id => !queueRecovery.items.some(i => i.contact_id === id)));
-        setQueueRecovery(null); setError('');
-      } else setError('The save outcome is not confirmed yet. Check saved queue again before retrying the save.');
+        sessionStorage.removeItem(`outreach-queue-save:${manual.queue_owner}`);setQueueRecovery(null); setError('');
+      } else {setQueueRecovery({...queueRecovery,notSaved:true});setError('No save was recorded. Review the allocation, then retry the same save.');}
     } catch { setError('Could not refresh the saved queue. Try refreshing again.'); }
     finally { queueWriteLock.current = false; setBusy(false); }
   };
@@ -1486,7 +1507,7 @@ export function ControlCenter({
                   </span>
 
                 </div>
-                {capabilities.queue && <ManualQueue saveQueue={saveQueue} savingQueue={savingQueue} recovery={queueRecovery} retryRefresh={retryQueueRefresh} refreshing={commandBusy && !savingQueue} data={{...manual,batches:relationships?.batches ?? manual.batches}} contacts={snapshot.contacts} selection={batchSelection} clear={ids => setBatchSelection(current => current.filter(id => !ids.includes(id)))} busy={busy} enabled={capabilities.queue} run={manualRun} dirty={Object.keys(messageEdits).filter(key => !key.includes(':') && messageEdits[key].text !== manual.invitations[key]?.text)} exclude={excludePeople} />}
+                {capabilities.queue && <ManualQueue stale={queueStale} onPerson={id=>{setFilter('all');setSelected(id);}} saveQueue={saveQueue} savingQueue={savingQueue} recovery={queueRecovery} retrySave={()=>{if(queueRecovery)void saveQueue(queueRecovery.items,queueRecovery.requestId);}} retryRefresh={retryQueueRefresh} refreshing={commandBusy && !savingQueue} data={{...manual,batches:relationships?.batches ?? manual.batches}} contacts={snapshot.contacts} selection={batchSelection} clear={ids => setBatchSelection(current => current.filter(id => !ids.includes(id)))} busy={busy} enabled={capabilities.queue} run={manualRun} dirty={Object.keys(messageEdits).filter(key => !key.includes(':') && messageEdits[key].text !== manual.invitations[key]?.text)} exclude={excludePeople} />}
 
                 {!capabilities.queue && batchSelection.length > 0 && (
                   <div

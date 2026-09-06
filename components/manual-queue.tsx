@@ -2,31 +2,34 @@
 import { deliveryOutcome } from "@/lib/relationship-projection.mjs";
 import { queueReceipt } from "@/lib/queue-save.mjs";
 import { confirmableInvitation } from "@/lib/manual-confirmation.mjs";
+import {allocateQueues,allocationLabel} from "@/lib/rolling-queues.mjs";
+import {QueueIndicator} from "./queue-indicator";
 import { useState } from "react";
 import { batchCommand, queueBlockReason, selectionSummary } from "@/lib/manual-queue.mjs";
 export type Invitation = { text:string;source:string;date?:string;token?:string;recommendation_id?:number;blocked_reason?:string;history?:{text:string;date:string;source:string}[] };
 type QueueItem = {failure_reason?:string;preflight_evidence?:string;id:string;contact_id:string;task_id?:number;name:string;text:string;status:string;removable:boolean;blocked_reason?:string};
 type Task = {id:number;contact_id:string;task_type:string;status:string;draft_message?:string;inbound_message?:string;updated_at:string;due_at:string;context_token?:string;approval_blocked_reason?:string};
-export type ManualState = { invitations:Record<string,Invitation>;batches:{id:string;code:string;kind:string;status:string;token?:string;items:QueueItem[]}[];tasks:Task[];people?:Record<string,{can_edit:boolean;can_select:boolean;can_prepare:boolean;can_restore:boolean;blocked_reason?:string;latest_inbound?:string}> };
+export type ManualState = { queue_owner?:string;queue_updated_at?:string;queue_state?:{token:string;capacity:number;next_number:number;queues:{id:string;number:number;remaining:number;started:boolean;uncertain:boolean}[]}; invitations:Record<string,Invitation>;batches:{queue_number?:number;can_run?:boolean;run_block_reason?:string;id:string;code:string;kind:string;status:string;token?:string;items:QueueItem[]}[];tasks:Task[];people?:Record<string,{can_edit:boolean;can_select:boolean;can_prepare:boolean;can_restore:boolean;blocked_reason?:string;latest_inbound?:string}> };
 type Run = (command:string,payload?:Record<string,unknown>)=>Promise<boolean>;
 export type MessageEdit = {text:string;token?:string;context_token?:string};
-type Props = {saveQueue:(items:{contact_id:string;text:string;token?:string}[])=>Promise<boolean>;savingQueue:boolean;recovery:{confirmed?:{batch_id:string;batch_code:string;selected_count:number}}|null;retryRefresh:()=>Promise<void>;refreshing:boolean;data:ManualState;contacts:{id:string;full_name:string;connection_status:string}[];selection:string[];clear:(ids:string[])=>void;busy:boolean;enabled:boolean;run:Run;dirty:string[];exclude:(ids:string[])=>Promise<void>};
-export function ManualQueue({data,contacts,selection,clear,busy,enabled,run,dirty,exclude,saveQueue,savingQueue,recovery,retryRefresh,refreshing}:Props) {
+type Props = {stale:boolean;onPerson:(id:string)=>void;saveQueue:(items:{contact_id:string;text:string;token?:string}[])=>Promise<boolean>;savingQueue:boolean;retrySave:()=>void;recovery:{notSaved?:boolean;confirmed?:{batch_id:string;batch_code:string;selected_count:number}}|null;retryRefresh:()=>Promise<void>;refreshing:boolean;data:ManualState;contacts:{id:string;full_name:string;connection_status:string}[];selection:string[];clear:(ids:string[])=>void;busy:boolean;enabled:boolean;run:Run;dirty:string[];exclude:(ids:string[])=>Promise<void>};
+export function ManualQueue({stale,onPerson,data,contacts,selection,clear,busy,enabled,run,dirty,exclude,saveQueue,savingQueue,recovery,retrySave,retryRefresh,refreshing}:Props) {
   const summary=selectionSummary(contacts,selection);
   const missingNames=contacts.filter(c=>summary.invitations.includes(c.id)&&!data.invitations[c.id]?.text?.trim()).map(c=>c.full_name);
-  const blocked=summary.invitations.some((id:string)=>dirty.includes(id)) ? 'Save or cancel your invitation edits before queuing.' : queueBlockReason(summary.invitations,data.invitations,enabled);
+  const allocation=allocateQueues(data.queue_state,summary.invitations.length);
+  const blocked=summary.invitations.some((id:string)=>dirty.includes(id)) ? 'Save or cancel your invitation edits before queuing.' : queueBlockReason(summary.invitations,data.invitations,enabled,60) || allocation.error;
   const readyReplies=summary.replies.filter((id:string)=>data.people?.[id]?.can_prepare);
   const replyReason=!enabled ? 'Reply preparation is unavailable.' : !readyReplies.length ? (summary.replies.length ? 'These conversations are already queued or need reconciliation. Open the person for details.' : 'Select connected people who have a next message to prepare.') : '';
-  return <section className="cc-manual-queue" aria-label="Selected people actions">{selection.length > 0 && <div className="cc-selection-bar cc-three-actions">
+  return <section className="cc-manual-queue" aria-label="Selected people actions"><QueueIndicator data={data} stale={stale} onPerson={onPerson}/>{selection.length > 0 && <div className="cc-selection-bar cc-three-actions">
     <strong>{summary.label}</strong>
-    <div><button aria-describedby="queue-reason" disabled={busy || !!blocked} onClick={async()=>{if(await saveQueue(summary.invitations.map((id:string)=>({contact_id:id,text:data.invitations[id].text,token:data.invitations[id].token})))) clear(summary.invitations);}}>{savingQueue ? 'Saving queue…' : `Save connection queue (${summary.invitations.length})`}</button><small id="queue-reason">{blocked || 'Saves this selection. Nothing is sent.'}{missingNames.length>0 && ` Missing: ${missingNames.slice(0,3).join(', ')}${missingNames.length>3 ? ` and ${missingNames.length-3} more`:''}.`}</small></div>
+    <div><button aria-describedby="queue-reason" disabled={busy || !!blocked} onClick={async()=>{if(await saveQueue(summary.invitations.map((id:string)=>({contact_id:id,text:data.invitations[id].text,token:data.invitations[id].token})))) clear(summary.invitations);}}>{savingQueue ? 'Saving queue…' : 'Save selected people'}</button><small id="queue-reason">{blocked || `${allocationLabel(allocation.allocations)}. Nothing is sent.`}{missingNames.length>0 && ` Missing: ${missingNames.slice(0,3).join(', ')}${missingNames.length>3 ? ` and ${missingNames.length-3} more`:''}.`}</small></div>
     <div><button aria-describedby="reply-reason" disabled={busy || !!replyReason} onClick={async()=>{if(await run('prepare_replies',{contact_ids:readyReplies})) clear(readyReplies);}}>Prepare replies ({readyReplies.length})</button><small id="reply-reason">{replyReason || 'Prepare only these people. Review their messages inside each row.'}</small></div>
     <div><button disabled={busy || !enabled || !selection.length} onClick={()=>void exclude(selection)}>Do not contact ({selection.length})</button><small>{selection.length ? 'Exclude selected people from outreach.' : 'Select people to exclude.'}</small></div>
   </div>}
     {recovery && <div className="cc-queue-inline-status" role="status">
-      <strong>{recovery.confirmed ? `Queue saved · ${recovery.confirmed.selected_count} people · Batch ${recovery.confirmed.batch_code}` : 'Checking save outcome'}</strong>
-      <span>{recovery.confirmed ? 'Nothing sent. Refresh to show current queue details.' : 'Save confirmation was interrupted. Another save is paused until confirmed.'}</span>
-      <button disabled={refreshing} onClick={()=>void retryRefresh()}>{refreshing ? 'Refreshing…' : 'Check saved queue'}</button>
+      <strong>{recovery.confirmed ? `Queue saved · ${recovery.confirmed.selected_count} people` : recovery.notSaved ? 'No save recorded' : 'Checking save outcome'}</strong>
+      <span>{recovery.confirmed ? 'Nothing sent. Refresh to show current queue details.' : recovery.notSaved ? 'Review the allocation above, then retry this save.' : 'Save confirmation was interrupted. Another save is paused until confirmed.'}</span>
+      <button disabled={refreshing} onClick={()=>void retryRefresh()}>{refreshing ? 'Refreshing…' : 'Check saved queue'}</button>{recovery.notSaved && <button disabled={refreshing} onClick={retrySave}>Retry same save</button>}
     </div>}
 
   </section>;
