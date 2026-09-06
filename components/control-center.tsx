@@ -35,7 +35,8 @@ import {
   createDemoControlCenter,
   currentAction,
   inboxNeedsAction,
-  peopleFocusOptions,
+  peopleFilterOptions,
+  peopleFilterGroups,
   peoplePriority,
   matchesPeopleFocus,
   canSelectOutreach,
@@ -621,7 +622,7 @@ export function ControlCenter({
           (filter === "unreached" && c.connection_status === "not_contacted") ||
           (filter === "execution" && ["queued", "running"].includes(stage)) ||
           filter === stage ||
-          (!peopleFocusOptions.some(([id]) => id === filter) &&
+          (!peopleFilterOptions.some(([id]) => id === filter) &&
             filter === action?.intent);
         const recs = discoveryBuckets.get(c.id) ?? [];
         return (
@@ -1370,7 +1371,7 @@ export function ControlCenter({
                     Updated {stamp(snapshot.as_of)}
                   </span>
                 </div>
-                {["waiting", "pending"].includes(filter) && (
+                {["waiting", "pending", "withdrawal"].includes(filter) && (
                   <div className="cc-invitation-review-entry">
                     <button
                       aria-expanded={showBacklog}
@@ -1393,7 +1394,7 @@ export function ControlCenter({
                 <p className="cc-workflow-guide cc-sr">
                   {capabilities.queue ? 'Select people → queue saved invitations → trigger the batch in ChatGPT Work. Replies need your exact-message approval.' : 'Select people → prepare drafts → review & approve → queued outreach.'}
                 </p>
-                {!peopleFocusOptions.some(([id]) => id === filter) && (
+                {!peopleFilterOptions.some(([id]) => id === filter) && (
                   <div className="cc-context-filter">
                     Showing:{" "}
                     {(
@@ -1431,7 +1432,7 @@ export function ControlCenter({
                   <select
                     aria-label="Filter people and actions"
                     value={
-                      peopleFocusOptions.some(([id]) => id === filter)
+                      peopleFilterOptions.some(([id]) => id === filter)
                         ? filter
                         : ""
                     }
@@ -1441,15 +1442,15 @@ export function ControlCenter({
                       setFilter(e.target.value);
                     }}
                   >
-                    {!peopleFocusOptions.some(([id]) => id === filter) && (
+                    {!peopleFilterOptions.some(([id]) => id === filter) && (
                       <option value="" disabled>
                         Focused view
                       </option>
                     )}
-                    {peopleFocusOptions.map(([id, label]) => (
-                      <option key={id} value={id}>
-                        {label}
-                      </option>
+                    {peopleFilterGroups.map(group => (
+                      <optgroup key={group.label} label={group.label}>
+                        {group.options.map(([id, label]) => <option key={id} value={id}>{label}</option>)}
+                      </optgroup>
                     ))}
                   </select>
                   {view === "people" && (
