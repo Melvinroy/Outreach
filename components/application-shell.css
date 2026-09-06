@@ -1,0 +1,229 @@
+/* Public pages and application chrome share the existing Outreach palette. */
+.shell-workspace-tools { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.cc-shell .workspace-status-trigger { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; min-height: 32px; padding: 0; border: 0; background: transparent; }
+.workspace-status-dot { width: 9px; height: 9px; border-radius: 50%; background: #73817b; box-shadow: 0 0 0 3px #73817b14; }
+.workspace-status-dot.connected { background: #138354; box-shadow: 0 0 0 3px #13835414; }
+.workspace-status-dot.failed { background: #c93434; box-shadow: 0 0 0 3px #c9343414; }
+.workspace-status-dot.pending { background: #a5680d; box-shadow: 0 0 0 3px #a5680d14; }
+.workspace-status-popover { z-index: 70; width: 280px; max-width: calc(100vw - 24px); padding: 14px; border: 1px solid #dbe4df; border-radius: 8px; background: #fff; color: #233b32; box-shadow: 0 5px 24px #153e2520; font: 13px/1.5 Inter, system-ui, sans-serif; }
+.workspace-status-popover p { margin: 6px 0; }
+.workspace-status-popover a { color: #00543f; text-decoration: underline; }
+.outreach-brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; white-space: nowrap; }
+.outreach-brand strong { font-size: 22px; font-weight: 650; letter-spacing: -.045em; }
+.outreach-public { min-height: 100dvh; background: #fcfdfc; color: #142522; padding: 0 max(28px, calc((100vw - 1160px)/2)); }
+.outreach-public a { text-decoration: none; }
+.outreach-public button, .outreach-public a { cursor: pointer; }
+.outreach-public :focus-visible { outline: 3px solid #78b7a3; outline-offset: 4px; }
+.landing-header { height: 96px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e7ede9; }
+.public-primary, .public-secondary { min-height: 44px; padding: 11px 22px; display: inline-flex; align-items: center; justify-content: center; gap: 12px; border-radius: 7px; font-size: 14px; font-weight: 550; line-height: 1.4; }
+.outreach-public .public-primary { border: 1px solid #00543f; background: #00543f; color: #fff; }
+.outreach-public .public-primary:hover { background: #064535; }
+.outreach-public .public-secondary { border: 1px solid #c6d9d0; color: #00543f; background: #fff; }
+.outreach-public button:disabled { opacity: .5; cursor: not-allowed; }
+.landing-hero { max-width: 850px; padding: clamp(68px, 12vh, 125px) 0 88px; }
+.landing-eyebrow { color: #006147; font-weight: 650; letter-spacing: .07em; font-size: 12px; margin: 0 0 22px; }
+.landing-hero h1 { font-size: clamp(38px, 5.4vw, 66px); line-height: 1.1; letter-spacing: -.055em; font-weight: 650; margin: 0; }
+.landing-hero h1 span { color: #00543f; }
+.landing-description { max-width: 560px; color: #52645f; font-size: 19px; line-height: 1.65; margin: 24px 0 30px; }
+.landing-footer { display: flex; justify-content: space-between; gap: 20px; padding: 24px 0; border-top: 1px solid #e7ede9; color: #66756f; font-size: 12px; }
+.landing-footer a { display: inline-flex; gap: 8px; align-items: center; color: #00543f; }
+.outreach-sign-in { display: grid; place-items: start center; padding: clamp(50px, 10vh, 100px) 24px; }
+.simple-sign-in { width: 100%; max-width: 390px; text-align: center; }
+.sign-in-brand { display: inline-block; margin-bottom: 32px; }
+.simple-sign-in h1 { font-size: 23px; letter-spacing: -.035em; line-height: 1.3; margin: 0 0 10px; font-weight: 650; }
+.sign-in-intro { color: #65716d; font-size: 13px; line-height: 1.5; margin: 0 0 30px; }
+.simple-sign-in-form { display: flex; flex-direction: column; text-align: left; gap: 9px; }
+.simple-sign-in-form label { font-size: 12px; font-weight: 500; }
+.simple-sign-in-form input { height: 43px; background: #fff; border: 1px solid #d5dfda; border-radius: 6px; font-size: 13px; box-shadow: none; margin-bottom: 10px; }
+.sign-in-forgot { border: 0; background: transparent; color: #00543f; align-self: flex-end; padding: 0 0 14px; font-size: 12px; }
+.sign-in-divider { position: relative; text-align: center; margin: 10px 0; color: #53685e; font-size: 12px; }
+.sign-in-divider:before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 1px solid #e2e9e5; }
+.sign-in-divider span { position: relative; background: #fcfdfc; padding: 0 14px; }
+.sign-in-sent { display: grid; justify-items: center; gap: 14px; color: #52645f; font-size: 14px; }
+
+/* Keep page components intact; reserve a compact, fixed column for navigation. */
+.cc-shell.outreach-app { --sidebar-width: 196px; display: block; padding-left: var(--sidebar-width); background: #fff; min-height: 100dvh; }
+.outreach-sidebar { position: fixed; z-index: 30; inset: 0 auto 0 0; width: var(--sidebar-width); display: flex; flex-direction: column; background: #073e32; color: #f2faf6; padding: 24px 12px 14px; }
+.sidebar-brand { padding: 0 12px 32px; }
+.sidebar-brand .outreach-brand strong { font-size: 19px; }
+.sidebar-brand .outreach-brand svg { width: 24px; }
+.sidebar-navigation { display: flex; flex-direction: column; gap: 6px; }
+.cc-shell .sidebar-navigation button { width: 100%; justify-content: flex-start; gap: 11px; border: 0; border-radius: 6px; background: transparent; color: #dcece5; padding: 11px 13px; font-size: 13px; }
+.cc-shell .sidebar-navigation button:hover, .cc-shell .sidebar-navigation button[aria-current="page"] { background: #205648; color: #fff; }
+.sidebar-profile { margin-top: auto; padding-top: 24px; }
+.cc-shell .profile-trigger { width: 100%; padding: 9px 6px; border: 0; background: transparent; color: #fff; justify-content: flex-start; gap: 9px; }
+.cc-shell .profile-trigger:hover, .cc-shell .profile-trigger[data-state="open"] { background: #205648; }
+.profile-initials { display: grid; place-items: center; width: 30px; height: 30px; flex-shrink: 0; border-radius: 50%; color: #fff; background: #63776f; font-size: 11px; }
+.profile-name { font-size: 12px; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.profile-menu { z-index: 60; min-width: 210px; max-width: calc(100vw - 24px); padding: 6px; border: 1px solid #dbe4df; border-radius: 8px; background: #fff; color: #233b32; box-shadow: 0 5px 24px #153e2520; font: 13px/1.4 Inter, system-ui, sans-serif; }
+.profile-menu-label { padding: 8px 10px; max-width: 280px; overflow-wrap: anywhere; color: #718078; font-size: 11px; }
+.profile-menu [role="menuitem"] { display: flex; align-items: center; gap: 10px; padding: 10px; border-radius: 4px; cursor: pointer; outline: none; }
+.profile-menu [role="menuitem"][data-highlighted] { background: #edf5ef; }
+.profile-menu [role="separator"] { margin: 5px; height: 1px; background: #e4ebe6; }
+.shell-workspace-dialog { background: #fff; }
+.shell-workspace-controls { display: flex; flex-wrap: wrap; gap: 10px; }
+.cc-shell.outreach-app .cc-main { width: 100%; max-width: 1600px; margin: 0 auto; padding: 20px 24px 28px; overflow: visible; }
+.shell-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 16px; }
+.cc-shell .shell-page-heading h1 { font-size: 24px; line-height: 1.25; font-weight: 650; letter-spacing: -.03em; }
+.cc-shell .shell-page-heading p { color: #63726c; font-size: 12px; margin-top: 4px; }
+.cc-shell .shell-workspace-badge { min-height: 32px; padding: 6px 10px; font-size: 11px; border-color: #dfe6e2; border-radius: 6px; white-space: nowrap; }
+.cc-density-overview .shell-page-heading { justify-content: flex-end; margin-bottom: 4px; }
+.outreach-app .ov-hero { padding-left: 0; padding-right: 0; }
+.cc-shell.outreach-app .ov-hero h1, .cc-shell.outreach-app .ov-intro { white-space: normal; }
+@media (min-width: 1024px) {
+  .cc-shell.outreach-app .ov-dashboard { min-height: 0; height: auto; }
+  .outreach-app .ov-content { min-height: 510px; }
+}
+@media (min-width: 1024px) and (max-width: 1550px) {
+  .outreach-app .ov-hero-aside, .outreach-app .ov-stage-notes { display: none; }
+  .cc-shell.outreach-app .ov-cycle .cc-flow { --axis: 55%; --loop-x: 13; --node-width: 42%; }
+}
+@media (max-width: 1100px) {
+  .cc-shell.outreach-app { --sidebar-width: 172px; }
+  .cc-shell.outreach-app .cc-main { padding: 18px; }
+}
+@media (max-width: 760px) {
+  .cc-shell.outreach-app { --sidebar-width: 0px; }
+  .outreach-sidebar { position: sticky; inset: auto; top: 0; width: 100%; display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 8px 12px; padding: 10px 12px; }
+  .sidebar-brand { grid-column: 1; grid-row: 1; padding: 0; }
+  .sidebar-profile { grid-column: 2; grid-row: 1; margin: 0; padding: 0; }
+  .sidebar-navigation { grid-column: 1 / -1; grid-row: 2; flex-direction: row; gap: 8px; }
+  .cc-shell .sidebar-navigation button { justify-content: center; padding: 10px 12px; min-height: 44px; }
+  .profile-name { display: none; }
+  .cc-shell .profile-trigger { justify-content: center; min-height: 44px; padding: 5px 8px; }
+  .cc-shell.outreach-app .cc-main { padding: 14px 12px 24px; }
+  .shell-page-heading { align-items: flex-start; flex-wrap: wrap; }
+  .landing-header { height: 80px; }
+  .landing-hero { padding: 64px 0; }
+  .landing-description { font-size: 16px; }
+  .landing-footer { flex-direction: column; }
+}
+
+/* Match the approved compact shell, independent of legacy global styles. */
+.cc-shell.outreach-app.cc-density-overview { display: block; height: auto; min-height: 100dvh; background: #fff; }
+.cc-shell.outreach-app .ov-hero { padding: 0 0 12px; align-items: flex-start; gap: 16px; }
+.cc-shell.outreach-app .ov-hero h1 { font-size: 24px; line-height: 1.25; letter-spacing: -.035em; margin: 0 0 4px; }
+.cc-shell.outreach-app .ov-intro { font-size: 12px; line-height: 1.5; }
+.cc-shell.outreach-app .ov-kpi { padding: 14px; gap: 12px; border-radius: 7px; }
+.outreach-app .ov-kpi-icon { width: 40px; height: 40px; }
+.outreach-app .ov-kpi-copy strong { font-size: 27px; }
+.cc-shell.outreach-app .ov-card, .cc-shell.outreach-app .ov-cycle { border-radius: 7px; }
+@media (min-width: 1024px) {
+  .cc-shell.outreach-app .ov-dashboard { flex: none; grid-template-rows: auto auto minmax(510px, auto) auto; }
+  .outreach-app .ov-content { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .outreach-app .ov-stage-notes { display: none; }
+  .cc-shell.outreach-app .ov-cycle .cc-flow { --axis: 55%; --loop-x: 13; --node-width: 42%; }
+}
+@media (max-width: 760px) {
+  .cc-shell.outreach-app .ov-hero { flex-wrap: wrap; gap: 8px; }
+  .cc-shell.outreach-app .ov-hero h1 { font-size: 23px; }
+  .cc-shell .workspace-status-trigger { width: 44px; height: 44px; }
+}
+@media (min-width: 1024px) {
+  .outreach-app .ov-sidebar { grid-template-rows: minmax(280px, 1fr) auto; }
+  .outreach-app .ov-activity ul { display: block; flex: none; }
+  .outreach-app .ov-activity li { min-height: 40px; }
+}
+
+button.sidebar-brand { background: transparent; border: 0; color: inherit; text-align: left; cursor: pointer; font: inherit; }
+/* Application chrome must outrank the generic control-center button rules. */
+.cc-shell.outreach-app .sidebar-brand {
+  display: flex; align-items: center; justify-content: flex-start;
+  width: auto; min-height: 44px; padding: 0 8px; margin: 0 0 20px;
+  border: 0; border-radius: 6px; background: transparent; color: #f2faf6;
+  text-align: left; box-shadow: none;
+}
+.cc-shell.outreach-app .sidebar-brand:hover { background: #205648; }
+.cc-shell.outreach-app .sidebar-brand .outreach-brand { gap: 10px; }
+.cc-shell.outreach-app .sidebar-brand svg { width: 22px; height: 22px; flex-shrink: 0; }
+.cc-shell.outreach-app .cc-main { max-width: none; min-width: 0; }
+@media (min-width: 1024px) {
+  .cc-shell.outreach-app.cc-density-overview .cc-main { min-height: 100dvh; }
+  .cc-shell.outreach-app .ov-dashboard {
+    flex: 1; min-height: calc(100dvh - 48px);
+    grid-template-rows: auto auto minmax(510px, 1fr) auto;
+  }
+}
+@media (max-width: 760px) {
+  .cc-shell.outreach-app .sidebar-brand { margin: 0; padding: 0 6px; justify-self: start; }
+  .outreach-public .simple-sign-in-form input { font-size: 16px; min-height: 44px; }
+  .outreach-public .sign-in-forgot, .outreach-public .auth-text-button { min-height: 44px; padding: 10px 0; }
+  .cc-shell.outreach-app .cc-person-row.cc-compact-row {
+    grid-template-columns: 32px minmax(0, 1fr) 44px; gap: 6px 8px; padding: 10px 8px;
+  }
+  .cc-shell.outreach-app .cc-compact-row .cc-selection { grid-column: 1; grid-row: 1; align-self: start; min-height: 44px; }
+  .cc-shell.outreach-app .cc-compact-row .cc-selection input { width: 24px; height: 24px; min-width: 24px; min-height: 24px; max-width: 24px; max-height: 24px; }
+  .cc-shell.outreach-app .cc-compact-row .cc-person-main { grid-column: 2; grid-row: 1; }
+  .cc-shell.outreach-app .cc-compact-row .cc-person-identity { flex-direction: column !important; align-items: flex-start !important; white-space: normal; }
+  .cc-shell.outreach-app .cc-compact-row .cc-person-name { max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: 14px; line-height: 1.4; }
+  .cc-shell.outreach-app .cc-compact-row .cc-person-role { white-space: normal; font-size: 12px; line-height: 1.4; }
+  .cc-shell.outreach-app .cc-compact-row .cc-row-opportunity { grid-column: 2 / -1; grid-row: 2; }
+  .cc-shell.outreach-app .cc-compact-row .cc-row-meta { grid-column: 2 / -1; grid-row: 3; }
+  .cc-shell.outreach-app .cc-compact-row .cc-row-open { grid-column: 3; grid-row: 1; width: 44px; min-height: 44px; align-self: start; }
+  .cc-shell.outreach-app .cc-compact-row .cc-inline-person,
+  .cc-shell.outreach-app .cc-compact-row .cc-batch-draft { grid-column: 1 / -1; grid-row: 4; }
+}
+/* Relationship workflow: geometry stays bounded while the viewport supplies height. */
+.cc-shell.outreach-app .ov-cycle .relationship-flow { min-height: 280px !important; --node-width: min(28%, 164px) !important; --node-height: 48px !important; }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-flow-node { width: var(--node-width); height: var(--node-height); left: auto; top: auto; min-height: 0; padding: 4px 7px; }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-discovery,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-outside,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-prepare,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-attention { left: calc(17% - var(--node-width)/2); }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-candidate,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-review { left: calc(50% - var(--node-width)/2); }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-send,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-waiting,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-connected { left: calc(82% - var(--node-width)/2); }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-discovery,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-candidate,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-send { top: 8px; }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-waiting,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-attention { top: calc((100% - var(--node-height))*.28); }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-outside,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-connected { top: calc((100% - var(--node-height))*.56); }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-prepare,.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-review { top: calc(100% - var(--node-height) - 8px); }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-attention { background:#fff4de; color:#825510; }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-candidate { background:#eaf2ff; color:#1761bc; }
+.cc-shell.outreach-app .ov-cycle .relationship-flow .cc-flow-node span { font-size:11px; white-space:normal; line-height:1.15; }
+.relationship-return-label { position:absolute; top:76%; left:28%; background:#fff; padding:2px 6px; font-size:11px; color:#007354; }
+.relationship-outcomes { display:flex; gap:20px; justify-content:center; font-size:12px; padding:5px; }
+.relationship-outcomes strong { margin-left:8px; }
+.ov-milestones { list-style:none; padding:0; margin:8px 0; display:grid; gap:8px; }
+.ov-milestones li { display:flex; justify-content:space-between; gap:8px; border-bottom:1px solid #edf1ef; padding-bottom:5px; font-size:12px; }
+.cc-shell .cc-attention-summary { display:inline-flex; align-items:center; gap:6px; min-height:36px; margin-bottom:8px; background:#fff9ec; color:#805211; }
+.cc-attention-reasons { padding:8px 12px; list-style:none; background:#fff9ec; border-radius:6px; }
+.cc-attention-reasons li { display:grid; gap:2px; font-size:12px; margin:4px 0; }
+@media(min-width:1024px) and (min-height:600px) {
+ .cc-shell.outreach-app.cc-density-overview .cc-main { height:100dvh; min-height:0; padding-top:14px; padding-bottom:14px; display:flex; }
+ .cc-shell.outreach-app .ov-dashboard { min-height:0; grid-template-rows:auto auto minmax(330px,1fr) auto; gap:8px; }
+ .cc-shell.outreach-app .ov-hero { padding:0; }
+ .cc-shell.outreach-app .ov-kpi { padding:8px 10px; }
+ .cc-shell.outreach-app .ov-kpi-copy small { font-size:10px; }
+ .cc-shell.outreach-app .ov-content { grid-template-columns:minmax(0,1.45fr) minmax(0,1fr); }
+ .cc-shell.outreach-app .ov-sidebar { grid-template-rows:minmax(195px,1.25fr) minmax(125px,.75fr); gap:8px; }
+ .cc-shell.outreach-app .ov-card { padding:10px; }
+ .cc-shell.outreach-app .ov-activity ul { display:grid; flex:1; grid-template-rows:repeat(4,1fr); }
+ .cc-shell.outreach-app .ov-activity li { min-height:0; padding:4px 0; }
+ .cc-shell.outreach-app .ov-conversion-body { display:grid; grid-template-columns:minmax(85px,.9fr) minmax(110px,1fr); gap:8px; }
+ .cc-shell.outreach-app .ov-ring { width:100%; max-width:190px; height:auto; aspect-ratio:1; align-self:center; }
+ .cc-shell.outreach-app .ov-cycle .cc-flow { flex:1; min-height:240px !important; }
+ .cc-shell.outreach-app .ov-dashboard:has(details[open]) { grid-template-rows:auto auto minmax(440px,auto) auto; }
+}
+@media(max-width:600px) {
+ .cc-shell.outreach-app .ov-cycle .relationship-flow { height:350px !important; --node-height:65px !important; --node-width:29% !important; }
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-flow-node { grid-template-columns:18px minmax(0,1fr); gap:2px; padding:4px; }
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-flow-node svg { width:16px; }
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-flow-node span { font-size:10px; }
+ .relationship-return-label { font-size:10px; left:23%; }
+}
+
+@media(min-width:1024px) and (min-height:600px) { .cc-shell.outreach-app .ov-content { min-height:0; } }
+@media(max-width:600px) {
+ .cc-shell.outreach-app .ov-cycle .relationship-flow { height:430px !important; --node-height:54px !important; --node-width:43% !important; }
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-discovery,
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-outside,
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-attention,
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-prepare { left:calc(25% - var(--node-width)/2); }
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-candidate,
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-send,
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-waiting,
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-connected,
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-review { left:calc(75% - var(--node-width)/2); }
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-send,
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-attention { top:calc((100% - var(--node-height))*.22); }
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-waiting { top:calc((100% - var(--node-height))*.43); }
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-connected,
+ .cc-shell.outreach-app .ov-cycle .relationship-flow .cc-node-outside { top:calc((100% - var(--node-height))*.64); }
+ .relationship-return-label { top:79%; left:23%; }
+}

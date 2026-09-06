@@ -1,0 +1,84 @@
+/* Shared rows keep both headings, editors and supporting details aligned. */
+.cc-shell .cc-inline-person .cc-person-columns {
+  grid-template-rows: auto 84px auto;
+  padding-top: 4px;
+}
+.cc-shell .cc-inline-person .cc-context-column,
+.cc-shell .cc-inline-person .cc-draft-area {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: 1 / span 3;
+  gap: 4px;
+  min-width: 0;
+}
+.cc-shell .cc-inline-person .cc-context-column { grid-column: 1; }
+.cc-shell .cc-inline-person .cc-draft-area { grid-column: 2; }
+.cc-shell .cc-inline-person .cc-invitation-columns .cc-draft-area { grid-column: 1; }
+.cc-shell .cc-inline-person .cc-card-heading {
+  min-height: 26px;
+  margin: 0;
+  align-items: center;
+}
+.cc-shell .cc-inline-person .cc-reply-heading {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+  gap: 4px 8px;
+}
+.cc-shell .cc-inline-person .cc-card-heading h3 {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.3;
+}
+.cc-shell .cc-inline-person .cc-reply-header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+}
+.cc-shell .cc-inline-person .cc-reply-header-actions button {
+  min-height: 26px;
+  padding: 3px 6px;
+  font-size: 11px;
+  line-height: 1.2;
+}
+.cc-shell .cc-inline-person .cc-reply-heading .cc-draft-tags { margin-left: auto; }
+.cc-shell .cc-inline-person label.cc-reply-editor:not(.cc-search) { display: block; min-width: 0; margin: 0; }
+.cc-shell .cc-inline-person .cc-reply-editor .cc-draft {
+  box-sizing: border-box;
+  width: 100%;
+  height: 84px;
+  min-height: 84px;
+  max-height: 84px;
+  margin: 0;
+  padding: 10px;
+  font-size: 14px;
+  line-height: 20px;
+  overflow-y: auto;
+  resize: none;
+}
+.cc-shell .cc-inline-person .cc-message-list {
+  margin: 0;
+  height: 84px;
+  min-height: 0;
+  max-height: 84px;
+  overflow-y: auto;
+  align-content: start;
+}
+.cc-shell .cc-inline-person .cc-context-column > .cc-manual,
+.cc-shell .cc-inline-person .cc-reply-footer { margin-top: 0; min-width: 0; }
+.cc-shell .cc-inline-person .cc-reply-footer .cc-approval-note { margin: 0 !important; }
+.cc-shell .cc-inline-person .cc-reply-footer { padding-top: 8px; border-top: 1px solid #e3eae0; }
+.cc-shell .cc-inline-person .cc-reply-footer .cc-original-draft { margin: 0 0 6px; }
+@media (max-width: 900px) {
+  .cc-shell .cc-inline-person .cc-person-columns { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; }
+  .cc-shell .cc-inline-person .cc-context-column,
+  .cc-shell .cc-inline-person .cc-draft-area { grid-column: 1; grid-row: auto; grid-template-rows: auto 84px auto; }
+  .cc-shell .cc-inline-person .cc-reply-header-actions button { min-height: 44px; font-size: 12px; padding: 7px 9px; }
+  .cc-shell .cc-inline-person .cc-reply-heading .cc-draft-tags { order: 1; }
+  .cc-shell .cc-inline-person .cc-reply-header-actions { order: 2; flex-basis: 100%; }
+  .cc-shell .cc-inline-person .cc-reply-header-actions > button { width: auto; flex: 0 1 auto; white-space: nowrap; }
+  .cc-shell .cc-inline-person .cc-reply-editor .cc-draft { font-size: 16px; }
+}

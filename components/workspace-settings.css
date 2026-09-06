@@ -1,0 +1,251 @@
+.cc-settings-overlay {
+  padding: 24px;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+.cc-shell .cc-settings-panel {
+  width: min(680px, 100%);
+  max-height: calc(100dvh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #dce5df;
+  border-radius: 12px;
+  box-shadow: 0 16px 48px #18372a25;
+}
+.cc-settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+  padding: 12px 24px;
+  border-bottom: 1px solid #e1e8e3;
+  background: #fff;
+}
+.cc-settings-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.cc-shell .cc-settings-header button {
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: 0;
+}
+.cc-settings-body {
+  min-height: 0;
+  padding: 0 24px 24px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  overflow-wrap: anywhere;
+}
+.cc-settings-section {
+  padding: 20px 0;
+  border-bottom: 1px solid #e1e8e3;
+}
+.cc-settings-section h3 {
+  margin: 0 0 12px;
+  font-size: 16px;
+}
+.cc-settings-body p {
+  margin: 6px 0;
+  line-height: 1.5;
+}
+.cc-settings-sample {
+  padding-top: 14px;
+  color: #61766c;
+  font-size: 12px;
+}
+.cc-connection-row {
+  padding: 10px 0;
+}
+.cc-connection-heading,
+.cc-settings-sending {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.cc-connection-heading strong {
+  font-size: 14px;
+}
+.cc-connection-heading span {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #4b6659;
+}
+.cc-connection-heading .cc-connection-warning {
+  color: #9a4e20;
+}
+.cc-connection-row p,
+.cc-settings-note,
+.cc-settings-refresh small {
+  font-size: 13px;
+  color: #596f62;
+}
+.cc-settings-refresh {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 14px 0;
+}
+.cc-settings-refresh button {
+  flex-shrink: 0;
+}
+.cc-settings-sending {
+  font-size: 14px;
+}
+.cc-settings-body form {
+  display: grid;
+  gap: 12px;
+}
+.cc-settings-body label {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+}
+.cc-shell .cc-settings-body input,
+.cc-shell .cc-settings-body select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border: 1px solid #ccd9d0;
+  border-radius: 6px;
+  background: white;
+  color: #233d31;
+  font-size: 16px;
+}
+.cc-shell .cc-settings-body button {
+  min-height: 44px;
+  padding: 9px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.cc-settings-body form > button {
+  justify-self: start;
+}
+.cc-settings-body summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 600;
+  list-style: none;
+}
+.cc-settings-body summary::before {
+  content: "+";
+  font-size: 18px;
+  font-weight: 400;
+}
+.cc-settings-body details[open] > summary::before {
+  content: "−";
+}
+.cc-settings-body summary::-webkit-details-marker {
+  display: none;
+}
+.cc-settings-body details label {
+  margin: 10px 0;
+}
+.cc-settings-troubleshooting {
+  padding-top: 8px;
+  font-size: 13px;
+}
+.cc-diagnostic {
+  padding: 12px 0;
+  border-bottom: 1px solid #e1e8e3;
+}
+.cc-settings-unsaved {
+  margin-top: 16px;
+  padding: 14px;
+  border: 1px solid #d6c18d;
+  border-radius: 8px;
+  background: #fffbef;
+}
+.cc-settings-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.cc-settings-panel :focus-visible {
+  outline: 2px solid #27745d;
+  outline-offset: 3px;
+}
+.cc-invitation-review-entry {
+  margin: 8px 0;
+}
+.cc-invitation-review {
+  padding: 16px;
+  margin: 10px 0;
+  border: 1px solid #dce5df;
+  border-radius: 8px;
+  background: #fff;
+}
+.cc-invitation-review header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.cc-invitation-review header h3 {
+  margin: 0;
+}
+.cc-invitation-review button {
+  min-height: 44px;
+}
+.cc-invitation-review label {
+  min-height: 44px;
+}
+.cc-shell .cc-invitation-review input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+}
+@media (max-width: 700px) {
+  .cc-settings-overlay {
+    padding: 0;
+    align-items: stretch;
+  }
+  .cc-shell .cc-settings-panel {
+    width: 100%;
+    max-width: none;
+    height: 100dvh;
+    max-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .cc-settings-header {
+    padding: max(8px, env(safe-area-inset-top)) 16px 8px;
+  }
+  .cc-settings-body {
+    padding: 0 16px max(24px, env(safe-area-inset-bottom));
+  }
+  .cc-settings-section {
+    padding: 16px 0;
+  }
+  .cc-settings-refresh {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .cc-settings-body form > button {
+    justify-self: stretch;
+  }
+  .cc-settings-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .cc-settings-actions button:last-child {
+    grid-column: 1 / -1;
+  }
+}

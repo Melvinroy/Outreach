@@ -1,0 +1,35 @@
+.cc-shell .cc-calendar-trigger {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-width: 0; max-width: 190px; padding: 8px 10px; white-space: nowrap;
+  border: 1px solid #d7e1dc; border-radius: 6px; background: #fff; color: #35584e;
+  font: inherit; font-size: 12px; cursor: pointer;
+}
+.cc-calendar-trigger span { overflow: hidden; text-overflow: ellipsis; }
+.cc-calendar-trigger svg { flex-shrink: 0; }
+.cc-calendar-popover {
+  z-index: 100; box-sizing: border-box; width: min(324px, calc(100vw - 16px));
+  max-height: var(--radix-popover-content-available-height); overflow: auto;
+  padding: 10px; background: #fff; border: 1px solid #d7e1dc; border-radius: 10px;
+  box-shadow: 0 8px 28px #172f3826; color: #29483e; font: 13px/1.4 system-ui, sans-serif;
+}
+.cc-calendar-popover .rdp-root {
+  --rdp-accent-color: #397461; --rdp-accent-background-color: #e8f1ec;
+  --rdp-day-width: 40px; --rdp-day-height: 40px;
+  --rdp-day_button-width: 38px; --rdp-day_button-height: 38px;
+  --rdp-day_button-border-radius: 6px; --rdp-selected-border: 2px solid #397461;
+  --rdp-nav_button-height: 40px; --rdp-nav_button-width: 40px;
+  width: 100%; margin: 0;
+}
+.cc-calendar-popover .rdp-months { justify-content: center; }
+.cc-calendar-popover .rdp-caption_label { font-size: 14px; }
+.cc-calendar-prompt { margin: 0 0 4px; font-size: 12px; min-height: 18px; color: #60776e; }
+.cc-calendar-footer { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid #e3eae6; padding-top: 8px; margin-top: 6px; }
+.cc-calendar-footer button { border: 1px solid #d7e1dc; border-radius: 6px; padding: 7px 14px; min-height: 40px; background: white; color: #35584e; font: inherit; cursor: pointer; }
+.cc-calendar-footer .cc-calendar-done { color: white; background: #397461; border-color: #397461; }
+.cc-calendar-footer button:disabled { opacity: .45; cursor: default; }
+.cc-calendar-popover button:focus-visible, .cc-calendar-trigger:focus-visible { outline: 2px solid #397461; outline-offset: 2px; }
+@media(max-width: 600px) {
+  .cc-calendar-popover .rdp-root { --rdp-day-height: 44px; --rdp-day_button-height: 44px; }
+  .cc-calendar-footer button { min-height: 44px; }
+  .cc-shell .cc-calendar-trigger { padding: 7px; max-width: 130px; }
+}

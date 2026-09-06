@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const page = readFileSync(new URL("../app/page.tsx", import.meta.url), "utf8");
-const styles = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+const styles = readFileSync(
+  new URL("../app/globals.css", import.meta.url),
+  "utf8",
+);
 
 test("outreach queue preserves and exposes recommendations across runs", () => {
   assert.match(page, /fetchAllRuns/);
@@ -15,7 +18,8 @@ test("outreach queue preserves and exposes recommendations across runs", () => {
 
 test("today remains default while backlog and date views remain reachable", () => {
   assert.match(page, /useState<QueueScope>\("today"\)/);
-  for (const label of ["Unreached", "Recent 7 days", "All", "Dates"]) assert.match(page, new RegExp(`>${label}`));
+  for (const label of ["Unreached", "Recent 7 days", "All", "Dates"])
+    assert.match(page, new RegExp(`>\\s*${label}`));
   assert.match(page, /found today/);
   assert.match(page, /unreached/);
   assert.match(page, /sent today/);
