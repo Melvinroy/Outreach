@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {conversationEvidence,opportunityDetails,readEvidenceRows,sourceContext} from '../lib/person-evidence.mjs';
+test('recovery labels observation time rather than claiming an exact send time',()=>{
+ const [row]=conversationEvidence([],[{id:'recovered',contact_id:'c',status:'completed',message_snapshot:'Frozen invitation',confirmation_signal:'linkedin_invitation_sent_visible',completed_at:'2026-09-07T03:00:00Z',recovered:true}]);
+ assert.match(row.source,/verification time; send time unavailable/);
+});
 test('source recovery stays within the matching invitation section and labels networking truthfully',()=>{
  const raw='### 1. First person\n- **Recent/current topic:** Governed AI. [Profile](https://example.com/profile) · [Announcement](https://example.com/news)\nHi First.\n### 2. Other person\n[Source](https://wrong.example.com)\nHi Other.';
  const row={id:1,run_id:'run',track:'executive',personalized_message:'Hi First.'};

@@ -1,0 +1,1 @@
+{"imports":{"@supabase/supabase-js":"npm:@supabase/supabase-js@2.112.4","@modelcontextprotocol/sdk/server/mcp.js":"npm:@modelcontextprotocol/sdk@1.30.0/server/mcp.js","@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js":"npm:@modelcontextprotocol/sdk@1.30.0/server/webStandardStreamableHttp.js","zod":"npm:zod@3.25.76"}}

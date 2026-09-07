@@ -16,6 +16,7 @@ import {
 import { LandingPage, OutreachBrand } from "@/components/application-shell";
 import { createWorkspaceStartup, workspaceLoadMessage } from "@/lib/workspace-startup.mjs";
 import { ControlCenter } from "@/components/control-center";
+import { WorkConsent } from "@/components/work-connection";
 import { ChatGPTAccount } from "@/components/chatgpt-account";
 import {
   Archive,
@@ -383,7 +384,7 @@ const uniqueActivityCount = (
       .map((activity) => activity.contact_id),
   ).size;
 const authRedirectUrl = () =>
-  `${window.location.origin}${window.location.pathname}`;
+  `${window.location.origin}${window.location.pathname}${new URLSearchParams(window.location.search).has("authorization_id") ? `?authorization_id=${encodeURIComponent(new URLSearchParams(window.location.search).get("authorization_id")!)}` : ""}`;
 const friendlyAuthError = (message: string) =>
   message.toLowerCase().includes("email rate limit")
     ? "The email service has reached its sending limit. Please try later, or use another available sign-in method."
@@ -4028,7 +4029,8 @@ export default function Home() {
       />
     );
   if (!authReady) return <LoadingScreen />;
-  if (!session || !supabase) return (new URLSearchParams(window.location.search).get("view") === "sign-in" || /(?:error|type=recovery)/.test(window.location.hash + window.location.search)) ? <SignIn client={supabase}/> : <LandingPage/>;
+  if (!session || !supabase) return (new URLSearchParams(window.location.search).has("authorization_id") || new URLSearchParams(window.location.search).get("view") === "sign-in" || /(?:error|type=recovery)/.test(window.location.hash + window.location.search)) ? <SignIn client={supabase}/> : <LandingPage/>;
+  if (new URLSearchParams(window.location.search).get("authorization_id")) return <WorkConsent client={supabase} authorizationId={new URLSearchParams(window.location.search).get("authorization_id")!}/>;
   if (passwordRecovery)
     return (
       <RecoveryPassword client={supabase} onComplete={finishPasswordRecovery} />
@@ -4079,4 +4081,3 @@ export default function Home() {
     />
   );
 }
-

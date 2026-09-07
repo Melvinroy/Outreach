@@ -25,6 +25,7 @@
     "@hookform/resolvers": "^5.7.1",
     "@langchain/core": "^1.2.9",
     "@langchain/langgraph": "^1.4.13",
+    "@modelcontextprotocol/sdk": "1.30.0",
     "@shadcn/react": "^0.3.0",
     "@supabase/supabase-js": "2.112.4",
     "class-variance-authority": "0.7.1",

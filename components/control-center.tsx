@@ -1717,7 +1717,7 @@ export function ControlCenter({
         )}
       </main>
       {showSettings && snapshot && (
-        <WorkspaceSettings
+        <WorkspaceSettings client={client}
           returnFocusRef={profileTriggerRef}
           snapshot={snapshot}
           demo={demo}
@@ -1730,4 +1730,3 @@ export function ControlCenter({
     </div>
   );
 }
-

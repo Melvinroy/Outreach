@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
+import {WorkConnection} from "./work-connection";
+import type {SupabaseClient} from "@supabase/supabase-js";
 import { X } from "lucide-react";
 import { defaultInvitationPolicy } from "@/lib/invitation-backlog.mjs";
 import {
@@ -34,6 +36,7 @@ type SettingsSnapshot = {
   }[];
 };
 type Props = {
+  client?: SupabaseClient;
   returnFocusRef?: RefObject<HTMLElement | null>;
   snapshot: SettingsSnapshot;
   demo: boolean;
@@ -49,6 +52,7 @@ function stamp(value?: string) {
 }
 
 export function WorkspaceSettings({
+  client,
   returnFocusRef,
   snapshot,
   demo,
@@ -203,6 +207,7 @@ export function WorkspaceSettings({
           </button>
         </header>
         <div className="cc-settings-body">
+          <WorkConnection client={client} demo={demo}/>
           {demo && (
             <p className="cc-settings-sample">
               Sample workspace · Live connections unavailable
